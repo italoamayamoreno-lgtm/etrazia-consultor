@@ -43,6 +43,11 @@
   #app-view{display:none;}
   .empty-state{text-align:center;color:var(--gray-5);padding:60px 20px;font-size:14px;}
   .conv-card{background:var(--gray-1);border:0.5px solid var(--gray-3);border-radius:14px;padding:18px 20px;margin-bottom:14px;}
+  .conv-meta{background:var(--gray-2);border-radius:10px;padding:10px 14px;margin-bottom:12px;}
+  .conv-meta-row{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0;}
+  .conv-meta-label{color:var(--gray-5);}
+  .badge-done{background:rgba(76,175,125,0.15);border-color:rgba(76,175,125,0.4);color:var(--green);}
+  .badge-progress{background:rgba(217,119,6,0.12);border-color:rgba(217,119,6,0.4);color:var(--amber);}
   .conv-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;flex-wrap:wrap;gap:6px;}
   .conv-date{font-size:13px;color:var(--gray-5);}
   .conv-id{font-size:11px;color:var(--gray-3);font-family:monospace;}
@@ -165,9 +170,14 @@ function downloadText(filename, content) {
   URL.revokeObjectURL(url);
 }
 
-function conversationToText(messages, createdAtLabel) {
-  let out = `Conversación — ${createdAtLabel}\n${'='.repeat(40)}\n\n`;
-  (messages || []).forEach(m => {
+function conversationToText(conversationLog, meta, createdAtLabel) {
+  let out = `Conversación — ${createdAtLabel}\n`;
+  out += `Empresa: ${meta.empresa || '-'}\n`;
+  out += `Nombres completos: ${meta.nombres || ''} ${meta.apellidos || ''}\n`;
+  out += `DNI: ${meta.dni || '-'}\n`;
+  out += `Rol en la empresa: ${meta.rol || '-'}\n`;
+  out += `${'='.repeat(40)}\n\n`;
+  (conversationLog || []).forEach(m => {
     const who = m.role === 'user' ? 'CLIENTE' : 'ASISTENTE';
     out += `[${who}]\n${m.text}\n`;
     if (m.attachments && m.attachments.length) {
@@ -194,27 +204,46 @@ async function loadConversations() {
     snap.forEach(doc => {
       const data = doc.data();
       const dateLabel = formatDate(data.createdAt);
+      const updatedLabel = formatDate(data.updatedAt);
+      const isDone = data.status === 'done';
+      const statusBadge = isDone
+        ? `<span class="badge badge-done">✓ Completado</span>`
+        : `<span class="badge badge-progress">● En progreso</span>`;
+      const fullName = `${data.nombres || ''} ${data.apellidos || ''}`.trim() || '(sin nombre)';
+
       const card = document.createElement('div');
       card.className = 'conv-card';
       card.innerHTML = `
-        <div class="conv-header">
-          <div class="conv-date">${dateLabel}</div>
-          <span class="badge">${(data.attachmentCount || 0)} adjunto(s)</span>
+        <div class="conv-meta">
+          <div class="conv-meta-row"><span class="conv-meta-label">Empresa</span><span>${data.empresa || '-'}</span></div>
+          <div class="conv-meta-row"><span class="conv-meta-label">Nombres completos</span><span>${fullName}</span></div>
+          <div class="conv-meta-row"><span class="conv-meta-label">DNI</span><span>${data.dni || '-'}</span></div>
+          <div class="conv-meta-row"><span class="conv-meta-label">Rol en la empresa</span><span>${data.rol || '-'}</span></div>
         </div>
-        <div class="conv-preview">${extractPreview(data.brief)}</div>
+        <div class="conv-header">
+          <div class="conv-date">Iniciado: ${dateLabel} &nbsp;·&nbsp; Última actividad: ${updatedLabel}</div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            ${statusBadge}
+            <span class="badge">${(data.attachmentCount || 0)} adjunto(s)</span>
+          </div>
+        </div>
+        <div class="conv-preview">${isDone ? extractPreview(data.brief) : 'Conversación aún en curso — brief no disponible todavía.'}</div>
         <div class="conv-actions">
-          <button class="btn btn-primary" data-action="brief">📋 Descargar brief (.md)</button>
+          <button class="btn btn-primary" data-action="brief" ${isDone ? '' : 'disabled'}>📋 Descargar brief (.md)</button>
           <button class="btn" data-action="conv">💬 Descargar conversación (.txt)</button>
           <button class="btn" data-action="attachments">📎 Ver adjuntos</button>
         </div>
         <div class="conv-attachments" style="display:none;margin-top:10px;"></div>
       `;
 
-      card.querySelector('[data-action="brief"]').addEventListener('click', () => {
-        downloadText(`brief_${doc.id}.md`, data.brief || '(sin brief)');
-      });
+      const briefBtn = card.querySelector('[data-action="brief"]');
+      if (isDone) {
+        briefBtn.addEventListener('click', () => {
+          downloadText(`brief_${doc.id}.md`, data.brief || '(sin brief)');
+        });
+      }
       card.querySelector('[data-action="conv"]').addEventListener('click', () => {
-        downloadText(`conversacion_${doc.id}.txt`, conversationToText(data.messages, dateLabel));
+        downloadText(`conversacion_${doc.id}.txt`, conversationToText(data.conversationLog, data, dateLabel));
       });
       card.querySelector('[data-action="attachments"]').addEventListener('click', async (e) => {
         const box = card.querySelector('.conv-attachments');
@@ -222,7 +251,7 @@ async function loadConversations() {
         box.style.display = 'block';
         if (box.dataset.loaded) return;
         box.innerHTML = 'Cargando adjuntos...';
-        const attSnap = await doc.ref.collection('adjuntos').get();
+        const attSnap = await doc.ref.collection('adjuntos').orderBy('order').get();
         if (attSnap.empty) {
           box.innerHTML = '<span style="color:var(--gray-5);font-size:12px;">Sin adjuntos.</span>';
         } else {
