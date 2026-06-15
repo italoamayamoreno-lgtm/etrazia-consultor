@@ -112,6 +112,9 @@
   #reg-box label{display:block;font-size:11px;color:var(--gray-5);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:5px;margin-top:14px;}
   #reg-box input{width:100%;background:var(--gray-2);border:0.5px solid var(--gray-3);border-radius:10px;padding:11px 14px;color:var(--ice);font-family:'Inter',sans-serif;font-size:14px;outline:none;}
   #reg-box input:focus{border-color:var(--copper);box-shadow:0 0 0 3px rgba(184,115,51,0.1);}
+  #reg-box select{width:100%;background:var(--gray-2);border:0.5px solid var(--gray-3);border-radius:10px;padding:11px 14px;color:var(--ice);font-family:'Inter',sans-serif;font-size:14px;outline:none;appearance:none;cursor:pointer;}
+  #reg-box select:focus{border-color:var(--copper);box-shadow:0 0 0 3px rgba(184,115,51,0.1);}
+  #reg-box select option{background:var(--gray-2);color:var(--ice);}
   #reg-submit{width:100%;background:linear-gradient(135deg,var(--copper),var(--amber));color:#1a1206;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;margin-top:22px;font-family:'Inter',sans-serif;}
   #reg-submit:disabled{opacity:0.6;cursor:not-allowed;}
   #reg-error{color:#f87171;font-size:12px;margin-top:10px;text-align:center;min-height:14px;}
@@ -147,6 +150,18 @@
     <input type="text" id="reg-dni" placeholder="Tu número de DNI" inputmode="numeric" />
     <label for="reg-rol">Rol en la empresa</label>
     <input type="text" id="reg-rol" placeholder="Ej. Gerente General, Ventas, etc." />
+    <label for="reg-industria">Industria</label>
+    <select id="reg-industria">
+      <option value="">Selecciona una industria...</option>
+      <option value="Retail">Retail</option>
+      <option value="Alimentos y bebidas">Alimentos y bebidas</option>
+      <option value="Salud y bienestar">Salud y bienestar</option>
+      <option value="Educación">Educación</option>
+      <option value="Servicios">Servicios</option>
+      <option value="Tecnología">Tecnología</option>
+      <option value="Construcción e inmobiliaria">Construcción e inmobiliaria</option>
+      <option value="Otro">Otro</option>
+    </select>
     <button id="reg-submit" onclick="startSession()">Empezar</button>
     <div id="reg-error"></div>
   </div>
@@ -672,7 +687,7 @@ function showResumeChoice(docId, data) {
 
 async function resumeSession(docId, data) {
   currentDocId = docId;
-  userMeta = { empresa: data.empresa, nombres: data.nombres, apellidos: data.apellidos, dni: data.dni, rol: data.rol };
+  userMeta = { empresa: data.empresa, nombres: data.nombres, apellidos: data.apellidos, dni: data.dni, rol: data.rol, industria: data.industria || '' };
   doneTopics = new Set(data.doneTopics || []);
   activeTopicKey = data.activeTopicKey || TOPICS[0].key;
 
@@ -702,10 +717,11 @@ async function startSession() {
   const apellidos = document.getElementById('reg-apellidos').value.trim();
   const dni = document.getElementById('reg-dni').value.trim();
   const rol = document.getElementById('reg-rol').value.trim();
+  const industria = document.getElementById('reg-industria').value;
   const errEl = document.getElementById('reg-error');
   errEl.textContent = '';
 
-  if (!empresa || !nombres || !apellidos || !dni || !rol) {
+  if (!empresa || !nombres || !apellidos || !dni || !rol || !industria) {
     errEl.textContent = 'Por favor completa todos los campos.';
     return;
   }
@@ -715,7 +731,7 @@ async function startSession() {
     errEl.textContent = 'El DNI ingresado no es válido.';
     return;
   }
-  userMeta = { empresa, nombres, apellidos, dni, rol };
+  userMeta = { empresa, nombres, apellidos, dni, rol, industria };
 
   const btn = document.getElementById('reg-submit');
   btn.disabled = true;
