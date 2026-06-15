@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Etrazia — Panel interno (Levantamientos)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root {
+    --black: #0B1120; --gray-1: #111827; --gray-2: #1A2235; --gray-3: #243044;
+    --gray-5: #94A3B8; --gray-6: #CBD5E1;
+    --copper: #B87333; --amber: #D97706; --ice: #F8FAFC; --green: #4CAF7D;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--black);color:var(--ice);font-family:'Inter',sans-serif;font-weight:300;min-height:100vh;}
+  h1,h2,h3{font-family:'Montserrat',sans-serif;}
+
+  nav{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:rgba(17,24,39,0.85);border-bottom:0.5px solid rgba(184,115,51,0.15);}
+  .nav-logo{display:flex;align-items:center;gap:10px;}
+  .nav-logo svg{width:30px;height:30px;}
+  .nav-title b{font-family:'Montserrat',sans-serif;font-weight:800;font-size:15px;letter-spacing:0.04em;}
+  .nav-title b span{color:var(--amber);font-weight:400;}
+  .nav-sub{font-size:9px;letter-spacing:0.16em;color:var(--gray-5);text-transform:uppercase;display:block;}
+  #logout-btn{background:transparent;border:0.5px solid var(--gray-3);color:var(--gray-5);border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;}
+  #logout-btn:hover{border-color:var(--copper);color:var(--amber);}
+
+  main{max-width:840px;margin:0 auto;padding:32px 20px;}
+
+  /* LOGIN */
+  #login-view{display:flex;align-items:center;justify-content:center;min-height:80vh;}
+  #login-box{background:var(--gray-1);border:0.5px solid var(--gray-3);border-radius:16px;padding:36px;width:100%;max-width:360px;}
+  #login-box h2{font-size:18px;margin-bottom:16px;text-align:center;}
+  #login-box input{width:100%;background:var(--gray-2);border:0.5px solid var(--gray-3);border-radius:10px;padding:11px 14px;color:var(--ice);font-family:'Inter',sans-serif;font-size:14px;margin-bottom:10px;outline:none;}
+  #login-box input:focus{border-color:var(--copper);}
+  #login-box button{width:100%;background:linear-gradient(135deg,var(--copper),var(--amber));color:#1a1206;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;margin-top:6px;}
+  #login-error{color:#f87171;font-size:12px;margin-top:10px;text-align:center;min-height:16px;}
+
+  /* LIST */
+  #app-view{display:none;}
+  .empty-state{text-align:center;color:var(--gray-5);padding:60px 20px;font-size:14px;}
+  .conv-card{background:var(--gray-1);border:0.5px solid var(--gray-3);border-radius:14px;padding:18px 20px;margin-bottom:14px;}
+  .conv-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;flex-wrap:wrap;gap:6px;}
+  .conv-date{font-size:13px;color:var(--gray-5);}
+  .conv-id{font-size:11px;color:var(--gray-3);font-family:monospace;}
+  .conv-preview{font-size:13px;color:var(--gray-6);line-height:1.5;margin-bottom:12px;max-height:60px;overflow:hidden;}
+  .conv-actions{display:flex;gap:8px;flex-wrap:wrap;}
+  .btn{background:var(--gray-2);border:0.5px solid var(--gray-3);color:var(--ice);border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.15s;text-decoration:none;display:inline-flex;align-items:center;gap:6px;}
+  .btn:hover{border-color:var(--copper);color:var(--amber);}
+  .btn-primary{background:linear-gradient(135deg,var(--copper),var(--amber));color:#1a1206;border:none;}
+  .badge{font-size:11px;background:var(--gray-2);border:0.5px solid var(--gray-3);border-radius:99px;padding:3px 10px;color:var(--gray-5);}
+  #loading{text-align:center;color:var(--gray-5);padding:40px;font-size:13px;}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">
+    <svg viewBox="0 0 44 44" fill="none">
+      <path d="M16 22C16 15.37 21.37 10 28 10C34.63 10 40 15.37 40 22C40 28.63 34.63 34 28 34" stroke="#1B2B4B" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <path d="M28 22C28 28.63 22.63 34 16 34C9.37 34 4 28.63 4 22C4 15.37 9.37 10 16 10" stroke="url(#nlg)" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <rect x="17.5" y="17.5" width="9" height="9" rx="1.5" fill="#D97706" transform="rotate(45 22 22)"/>
+      <defs><linearGradient id="nlg" x1="28" y1="10" x2="4" y2="34" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="#B87333"/><stop offset="100%" stop-color="#D97706"/>
+      </linearGradient></defs>
+    </svg>
+    <div class="nav-title">
+      <b>ETRAZIA<span>app</span></b>
+      <span class="nav-sub">Panel interno — Levantamientos</span>
+    </div>
+  </div>
+  <button id="logout-btn" onclick="doLogout()" style="display:none">Cerrar sesión</button>
+</nav>
+
+<main>
+  <!-- LOGIN -->
+  <div id="login-view">
+    <div id="login-box">
+      <h2>Iniciar sesión</h2>
+      <input type="email" id="login-email" placeholder="Correo" autocomplete="username" />
+      <input type="password" id="login-password" placeholder="Contraseña" autocomplete="current-password" />
+      <button onclick="doLogin()">Entrar</button>
+      <div id="login-error"></div>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div id="app-view">
+    <div id="loading">Cargando conversaciones...</div>
+    <div id="conv-list"></div>
+  </div>
+</main>
+
+<script>
+// ===================== CONFIGURACIÓN — debe ser EXACTAMENTE el mismo firebaseConfig que consultor.html =====================
+const firebaseConfig = {
+  apiKey: "AIzaSyBl7BjWPh8id3mKjoQPSK67y_Q8Oe_Wmns",
+  authDomain: "etrazia-consultor.firebaseapp.com",
+  projectId: "etrazia-consultor",
+  storageBucket: "etrazia-consultor.firebasestorage.app",
+  messagingSenderId: "1041562210615",
+  appId: "1:1041562210615:web:c7186ed83bb556c8aa0ab2"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+// ===========================================================================================================================
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    document.getElementById('login-view').style.display = 'none';
+    document.getElementById('app-view').style.display = 'block';
+    document.getElementById('logout-btn').style.display = 'inline-block';
+    loadConversations();
+  } else {
+    document.getElementById('login-view').style.display = 'flex';
+    document.getElementById('app-view').style.display = 'none';
+    document.getElementById('logout-btn').style.display = 'none';
+  }
+});
+
+function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errorBox = document.getElementById('login-error');
+  errorBox.textContent = '';
+  auth.signInWithEmailAndPassword(email, password)
+    .catch(err => { errorBox.textContent = 'Correo o contraseña incorrectos.'; console.error(err); });
+}
+
+function doLogout() {
+  auth.signOut();
+}
+
+document.getElementById('login-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+// ---- Helpers ----
+function formatDate(ts) {
+  if (!ts) return 'Fecha desconocida';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleString('es-PE', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function extractPreview(brief) {
+  if (!brief) return 'Brief aún no disponible.';
+  const match = brief.match(/### Información general\s*\n([\s\S]*?)(\n###|$)/);
+  const text = match ? match[1] : brief;
+  return text.replace(/[-*]\s*/g, '').replace(/\n+/g, ' ').trim().slice(0, 220);
+}
+
+function downloadText(filename, content) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function conversationToText(messages, createdAtLabel) {
+  let out = `Conversación — ${createdAtLabel}\n${'='.repeat(40)}\n\n`;
+  (messages || []).forEach(m => {
+    const who = m.role === 'user' ? 'CLIENTE' : 'ASISTENTE';
+    out += `[${who}]\n${m.text}\n`;
+    if (m.attachments && m.attachments.length) {
+      out += `(Adjuntos: ${m.attachments.join(', ')})\n`;
+    }
+    out += '\n';
+  });
+  return out;
+}
+
+// ---- Load & render conversations ----
+async function loadConversations() {
+  const listEl = document.getElementById('conv-list');
+  const loadingEl = document.getElementById('loading');
+  try {
+    const snap = await db.collection('conversaciones').orderBy('createdAt', 'desc').get();
+    loadingEl.style.display = 'none';
+
+    if (snap.empty) {
+      listEl.innerHTML = '<div class="empty-state">Todavía no hay conversaciones guardadas.</div>';
+      return;
+    }
+
+    snap.forEach(doc => {
+      const data = doc.data();
+      const dateLabel = formatDate(data.createdAt);
+      const card = document.createElement('div');
+      card.className = 'conv-card';
+      card.innerHTML = `
+        <div class="conv-header">
+          <div class="conv-date">${dateLabel}</div>
+          <span class="badge">${(data.attachmentCount || 0)} adjunto(s)</span>
+        </div>
+        <div class="conv-preview">${extractPreview(data.brief)}</div>
+        <div class="conv-actions">
+          <button class="btn btn-primary" data-action="brief">📋 Descargar brief (.md)</button>
+          <button class="btn" data-action="conv">💬 Descargar conversación (.txt)</button>
+          <button class="btn" data-action="attachments">📎 Ver adjuntos</button>
+        </div>
+        <div class="conv-attachments" style="display:none;margin-top:10px;"></div>
+      `;
+
+      card.querySelector('[data-action="brief"]').addEventListener('click', () => {
+        downloadText(`brief_${doc.id}.md`, data.brief || '(sin brief)');
+      });
+      card.querySelector('[data-action="conv"]').addEventListener('click', () => {
+        downloadText(`conversacion_${doc.id}.txt`, conversationToText(data.messages, dateLabel));
+      });
+      card.querySelector('[data-action="attachments"]').addEventListener('click', async (e) => {
+        const box = card.querySelector('.conv-attachments');
+        if (box.style.display === 'block') { box.style.display = 'none'; return; }
+        box.style.display = 'block';
+        if (box.dataset.loaded) return;
+        box.innerHTML = 'Cargando adjuntos...';
+        const attSnap = await doc.ref.collection('adjuntos').get();
+        if (attSnap.empty) {
+          box.innerHTML = '<span style="color:var(--gray-5);font-size:12px;">Sin adjuntos.</span>';
+        } else {
+          box.innerHTML = '';
+          attSnap.forEach(a => {
+            const att = a.data();
+            const link = document.createElement('a');
+            link.className = 'btn';
+            link.href = att.dataUrl;
+            link.download = att.name;
+            link.textContent = `⬇ ${att.name}`;
+            link.style.marginRight = '8px';
+            link.style.marginBottom = '6px';
+            box.appendChild(link);
+          });
+        }
+        box.dataset.loaded = '1';
+      });
+
+      listEl.appendChild(card);
+    });
+  } catch (err) {
+    loadingEl.textContent = 'Error al cargar las conversaciones. Revisa la consola para más detalles.';
+    console.error(err);
+  }
+}
+</script>
+</body>
+</html>
