@@ -103,6 +103,28 @@
 
   #ended-banner{display:none;text-align:center;padding:14px 20px;color:var(--gray-5);font-size:12px;border-top:0.5px solid var(--gray-3);background:rgba(17,24,39,0.6);}
   #ended-banner b{color:var(--green);}
+
+  /* REGISTRATION */
+  #registration-view{position:fixed;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--black);}
+  #reg-box{background:var(--gray-1);border:0.5px solid var(--gray-3);border-radius:18px;padding:32px 28px;width:100%;max-width:400px;position:relative;z-index:1;}
+  #reg-box h2{font-size:18px;margin-bottom:6px;}
+  #reg-box .reg-sub{font-size:12.5px;color:var(--gray-5);margin-bottom:20px;line-height:1.5;}
+  #reg-box label{display:block;font-size:11px;color:var(--gray-5);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:5px;margin-top:14px;}
+  #reg-box input{width:100%;background:var(--gray-2);border:0.5px solid var(--gray-3);border-radius:10px;padding:11px 14px;color:var(--ice);font-family:'Inter',sans-serif;font-size:14px;outline:none;}
+  #reg-box input:focus{border-color:var(--copper);box-shadow:0 0 0 3px rgba(184,115,51,0.1);}
+  #reg-submit{width:100%;background:linear-gradient(135deg,var(--copper),var(--amber));color:#1a1206;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;margin-top:22px;font-family:'Inter',sans-serif;}
+  #reg-submit:disabled{opacity:0.6;cursor:not-allowed;}
+  #reg-error{color:#f87171;font-size:12px;margin-top:10px;text-align:center;min-height:14px;}
+
+  /* RESUME OVERLAY */
+  #resume-overlay{display:none;position:fixed;inset:0;z-index:6;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;padding:20px;}
+  #resume-box{background:var(--gray-1);border:0.5px solid var(--gray-3);border-radius:18px;padding:28px;max-width:380px;text-align:center;}
+  #resume-box h3{font-size:16px;margin-bottom:10px;}
+  #resume-box p{font-size:13px;color:var(--gray-6);line-height:1.6;margin-bottom:20px;}
+  #resume-box .resume-actions{display:flex;flex-direction:column;gap:10px;}
+  .btn-resume-primary{background:linear-gradient(135deg,var(--copper),var(--amber));color:#1a1206;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;}
+  .btn-resume-secondary{background:transparent;border:0.5px solid var(--gray-3);color:var(--gray-5);border-radius:10px;padding:12px;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;}
+  .btn-resume-secondary:hover{color:var(--ice);border-color:var(--gray-4);}
 </style>
 </head>
 <body>
@@ -110,7 +132,39 @@
 <div class="bg-blob b1"></div>
 <div class="bg-blob b2"></div>
 
-<nav>
+<!-- REGISTRO -->
+<div id="registration-view">
+  <div id="reg-box">
+    <h2>Antes de empezar</h2>
+    <div class="reg-sub">Cuéntanos quién eres — así, si necesitas pausar y volver más tarde, podemos retomar justo donde quedaste.</div>
+    <label for="reg-empresa">Empresa</label>
+    <input type="text" id="reg-empresa" placeholder="Nombre de la empresa" />
+    <label for="reg-nombres">Nombres</label>
+    <input type="text" id="reg-nombres" placeholder="Tus nombres" />
+    <label for="reg-apellidos">Apellidos</label>
+    <input type="text" id="reg-apellidos" placeholder="Tus apellidos" />
+    <label for="reg-dni">DNI</label>
+    <input type="text" id="reg-dni" placeholder="Tu número de DNI" inputmode="numeric" />
+    <label for="reg-rol">Rol en la empresa</label>
+    <input type="text" id="reg-rol" placeholder="Ej. Gerente General, Ventas, etc." />
+    <button id="reg-submit" onclick="startSession()">Empezar</button>
+    <div id="reg-error"></div>
+  </div>
+</div>
+
+<!-- RETOMAR CONVERSACIÓN -->
+<div id="resume-overlay">
+  <div id="resume-box">
+    <h3>👋 Te estábamos esperando</h3>
+    <p>Encontramos una conversación que empezaste anteriormente y que no terminaste. ¿Quieres continuar justo donde quedaste, o prefieres empezar de nuevo?</p>
+    <div class="resume-actions">
+      <button class="btn-resume-primary" id="resume-continue">Continuar donde quedé</button>
+      <button class="btn-resume-secondary" id="resume-restart">Empezar de nuevo</button>
+    </div>
+  </div>
+</div>
+
+<nav style="display:none">
   <div class="nav-logo">
     <svg viewBox="0 0 44 44" fill="none">
       <path d="M16 22C16 15.37 21.37 10 28 10C34.63 10 40 15.37 40 22C40 28.63 34.63 34 28 34" stroke="#1B2B4B" stroke-width="5" fill="none" stroke-linecap="round"/>
@@ -130,9 +184,9 @@
   </div>
 </nav>
 
-<div id="progress-strip"></div>
+<div id="progress-strip" style="display:none"></div>
 
-<main>
+<main style="display:none">
   <div id="chat-view">
     <div id="messages"></div>
     <div id="input-bar">
@@ -278,15 +332,19 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 // ==========================================================================================
 
-let messages = [];
+let messages = [];          // raw, with real base64 — used for API calls
+let messagesStorable = [];  // same shape but image/doc data replaced with "REF:n" — saved to Firestore
 let isLoading = false;
 let activeTopicKey = TOPICS[0].key;
 let doneTopics = new Set();
 let pendingAttachments = []; // {name, type, dataUrl, isImage, isPdf}
-let allAttachments = []; // full record, saved to Firestore at the end
+let allAttachments = []; // full record, saved to Firestore (subcollection "adjuntos")
+let attachmentSaveIndex = 0; // how many of allAttachments are already saved
 let conversationLog = []; // {role, text, attachments:[names]} — clean version for storage/export
 let conversationEnded = false;
 let lastBriefMarkdown = '';
+let currentDocId = null;
+let userMeta = {};
 
 function renderProgressStrip() {
   const strip = document.getElementById('progress-strip');
@@ -337,6 +395,21 @@ function addMessageToUI(role, text, attachments) {
     text,
     attachments: (attachments || []).map(a => a.name)
   });
+}
+
+// Re-render a message during a resumed session WITHOUT pushing to conversationLog (already loaded)
+function addMessageToUIRestore(role, text, attachmentNames) {
+  const atts = (attachmentNames || []).map(name => allAttachments.find(a => a.name === name)).filter(Boolean);
+  const container = document.getElementById('messages');
+  const row = document.createElement('div');
+  row.className = 'msg-row ' + (role === 'user' ? 'user' : 'bot');
+  let attachHtml = '';
+  if (atts.length) {
+    attachHtml = '<div>' + atts.map(a => `<div class="attach-chip">${fileIcon(a)} <span>${a.name}</span></div>`).join('') + '</div>';
+  }
+  const bubble = `<div class="msg ${role === 'user' ? 'user' : 'bot'}">${textToHtml(text)}${attachHtml}</div>`;
+  row.innerHTML = role === 'user' ? bubble : logoAvatar(false) + bubble;
+  container.appendChild(row);
 }
 
 function textToHtml(text) {
@@ -421,7 +494,20 @@ function removePending(i) {
 }
 
 // ---- Core conversation ----
-async function callClaude(userContent, mode, displayText, displayAttachments) {
+function resolveContent(content) {
+  if (typeof content === 'string') return content;
+  return content.map(block => {
+    if (block.source && typeof block.source.data === 'string' && block.source.data.startsWith('REF:')) {
+      const idx = parseInt(block.source.data.slice(4), 10);
+      const att = allAttachments[idx];
+      const base64 = att ? att.dataUrl.split(',')[1] : '';
+      return { ...block, source: { ...block.source, data: base64 } };
+    }
+    return block;
+  });
+}
+
+async function callClaude(userContent, mode, displayText, displayAttachments, storableUserContent) {
   if (isLoading) return;
   isLoading = true;
   document.getElementById('send-btn').disabled = true;
@@ -430,6 +516,9 @@ async function callClaude(userContent, mode, displayText, displayAttachments) {
     addMessageToUI('user', displayText, displayAttachments);
   }
   messages.push({ role: 'user', content: userContent });
+  if (mode !== 'brief') {
+    messagesStorable.push({ role: 'user', content: storableUserContent !== undefined ? storableUserContent : userContent });
+  }
   showTyping();
 
   try {
@@ -450,13 +539,17 @@ async function callClaude(userContent, mode, displayText, displayAttachments) {
     let reply = textBlocks.join('\n') || "Disculpa, no pude procesar eso. <!--SECTION:negocio|STATUS:ongoing-->";
 
     messages.push({ role: 'assistant', content: reply });
+    if (mode !== 'brief') {
+      messagesStorable.push({ role: 'assistant', content: reply });
+    }
 
     if (mode === 'brief') {
       lastBriefMarkdown = reply;
-      saveConversation();
+      await finalizeConversation();
     } else {
       const { cleaned, status } = parseMeta(reply);
       addMessageToUI('bot', cleaned);
+      await saveProgress();
       if (status === 'done') {
         endConversation();
       }
@@ -477,34 +570,41 @@ function sendMessage() {
   if ((!text && pendingAttachments.length === 0) || isLoading) return;
 
   const atts = pendingAttachments.slice();
+  const attIndexStart = allAttachments.length;
   allAttachments.push(...atts);
 
   const contentBlocks = [];
-  if (text) contentBlocks.push({ type: 'text', text });
+  const storableBlocks = [];
+  if (text) { contentBlocks.push({ type: 'text', text }); storableBlocks.push({ type: 'text', text }); }
+
   let extraNote = '';
-  atts.forEach(a => {
+  atts.forEach((a, i) => {
+    const globalIdx = attIndexStart + i;
     if (a.isImage) {
       const base64 = a.dataUrl.split(',')[1];
       contentBlocks.push({ type: 'image', source: { type: 'base64', media_type: a.type, data: base64 } });
+      storableBlocks.push({ type: 'image', source: { type: 'base64', media_type: a.type, data: 'REF:' + globalIdx } });
     } else if (a.isPdf) {
       const base64 = a.dataUrl.split(',')[1];
       contentBlocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } });
+      storableBlocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: 'REF:' + globalIdx } });
     } else {
       extraNote += `\n[Archivo adjunto: ${a.name} — disponible para el equipo de Etrazia, no analizable aquí]`;
     }
   });
   if (extraNote) {
-    if (contentBlocks.length && contentBlocks[0].type === 'text') contentBlocks[0].text += extraNote;
-    else contentBlocks.unshift({ type: 'text', text: extraNote.trim() });
+    if (contentBlocks.length && contentBlocks[0].type === 'text') { contentBlocks[0].text += extraNote; storableBlocks[0].text += extraNote; }
+    else { contentBlocks.unshift({ type: 'text', text: extraNote.trim() }); storableBlocks.unshift({ type: 'text', text: extraNote.trim() }); }
   }
   const content = contentBlocks.length === 1 && contentBlocks[0].type === 'text' ? contentBlocks[0].text : contentBlocks;
+  const storableContent = storableBlocks.length === 1 && storableBlocks[0].type === 'text' ? storableBlocks[0].text : storableBlocks;
 
   input.value = '';
   input.style.height = 'auto';
   pendingAttachments = [];
   renderPendingAttachments();
 
-  callClaude(content, 'user', text || '(adjunto enviado)', atts);
+  callClaude(content, 'user', text || '(adjunto enviado)', atts, storableContent);
 }
 
 document.getElementById('user-input').addEventListener('keydown', function(e){
@@ -525,31 +625,167 @@ function endConversation() {
   callClaude("GENERAR_BRIEF_FINAL", 'brief');
 }
 
-// ---- Guardado en Firestore ----
-async function saveConversation() {
-  try {
-    const docRef = await db.collection('conversaciones').add({
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      messages: conversationLog,
-      brief: lastBriefMarkdown,
-      attachmentCount: allAttachments.length
-    });
+// ---- Registro, retomar y guardado en Firestore ----
+function sanitizeId(s) {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+}
 
-    for (const att of allAttachments) {
-      await docRef.collection('adjuntos').add({
-        name: att.name,
-        type: att.type,
-        dataUrl: att.dataUrl
-      });
+function hideRegistration() {
+  document.getElementById('registration-view').style.display = 'none';
+  document.querySelector('nav').style.display = 'flex';
+  document.getElementById('progress-strip').style.display = 'flex';
+  document.querySelector('main').style.display = 'flex';
+}
+
+async function initNewDoc(docId) {
+  await db.collection('conversaciones').doc(docId).set({
+    ...userMeta,
+    status: 'in_progress',
+    messages: [],
+    conversationLog: [],
+    doneTopics: [],
+    activeTopicKey: TOPICS[0].key,
+    attachmentCount: 0,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+}
+
+function beginChat() {
+  hideRegistration();
+  callClaude("Hola, ya estamos listos para empezar la conversación. Por favor preséntate y comienza.", 'init');
+}
+
+function showResumeChoice(docId, data) {
+  document.getElementById('resume-overlay').style.display = 'flex';
+  document.getElementById('resume-continue').onclick = () => {
+    document.getElementById('resume-overlay').style.display = 'none';
+    resumeSession(docId, data);
+  };
+  document.getElementById('resume-restart').onclick = async () => {
+    document.getElementById('resume-overlay').style.display = 'none';
+    currentDocId = docId;
+    await initNewDoc(currentDocId);
+    beginChat();
+  };
+}
+
+async function resumeSession(docId, data) {
+  currentDocId = docId;
+  userMeta = { empresa: data.empresa, nombres: data.nombres, apellidos: data.apellidos, dni: data.dni, rol: data.rol };
+  doneTopics = new Set(data.doneTopics || []);
+  activeTopicKey = data.activeTopicKey || TOPICS[0].key;
+
+  try {
+    const attSnap = await db.collection('conversaciones').doc(docId).collection('adjuntos').orderBy('order').get();
+    allAttachments = attSnap.docs.map(d => d.data());
+  } catch (e) {
+    console.error('Error cargando adjuntos:', e);
+    allAttachments = [];
+  }
+  attachmentSaveIndex = allAttachments.length;
+
+  messagesStorable = data.messages || [];
+  messages = messagesStorable.map(m => ({ role: m.role, content: resolveContent(m.content) }));
+  conversationLog = (data.conversationLog || []).slice();
+
+  hideRegistration();
+  renderProgressStrip();
+  conversationLog.forEach(entry => addMessageToUIRestore(entry.role, entry.text, entry.attachments));
+  const container = document.getElementById('messages');
+  container.scrollTop = container.scrollHeight;
+}
+
+async function startSession() {
+  const empresa = document.getElementById('reg-empresa').value.trim();
+  const nombres = document.getElementById('reg-nombres').value.trim();
+  const apellidos = document.getElementById('reg-apellidos').value.trim();
+  const dni = document.getElementById('reg-dni').value.trim();
+  const rol = document.getElementById('reg-rol').value.trim();
+  const errEl = document.getElementById('reg-error');
+  errEl.textContent = '';
+
+  if (!empresa || !nombres || !apellidos || !dni || !rol) {
+    errEl.textContent = 'Por favor completa todos los campos.';
+    return;
+  }
+
+  const docId = sanitizeId(dni);
+  if (!docId) {
+    errEl.textContent = 'El DNI ingresado no es válido.';
+    return;
+  }
+  userMeta = { empresa, nombres, apellidos, dni, rol };
+
+  const btn = document.getElementById('reg-submit');
+  btn.disabled = true;
+  btn.textContent = 'Verificando...';
+
+  try {
+    const snap = await db.collection('conversaciones').doc(docId).get();
+    if (snap.exists) {
+      const data = snap.data();
+      if (data.status === 'in_progress' && data.conversationLog && data.conversationLog.length > 0) {
+        showResumeChoice(docId, data);
+        return;
+      } else if (data.status === 'done') {
+        currentDocId = docId + '_' + Date.now();
+        await initNewDoc(currentDocId);
+        beginChat();
+        return;
+      }
     }
-    console.log('Conversación guardada:', docRef.id);
+    currentDocId = docId;
+    await initNewDoc(currentDocId);
+    beginChat();
   } catch (err) {
-    console.error('Error guardando la conversación en Firestore:', err);
+    console.error(err);
+    errEl.textContent = 'Hubo un problema de conexión. Intenta de nuevo.';
+    btn.disabled = false;
+    btn.textContent = 'Empezar';
   }
 }
 
-window.addEventListener('load', () => {
-  callClaude("Hola, ya estamos listos para empezar la conversación. Por favor preséntate y comienza.", 'init');
+async function saveProgress() {
+  try {
+    await db.collection('conversaciones').doc(currentDocId).set({
+      ...userMeta,
+      status: 'in_progress',
+      messages: messagesStorable,
+      conversationLog,
+      doneTopics: Array.from(doneTopics),
+      activeTopicKey: activeTopicKey || null,
+      attachmentCount: allAttachments.length,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    for (let i = attachmentSaveIndex; i < allAttachments.length; i++) {
+      const att = allAttachments[i];
+      await db.collection('conversaciones').doc(currentDocId).collection('adjuntos').doc(String(i)).set({
+        name: att.name, type: att.type, dataUrl: att.dataUrl, order: i
+      });
+    }
+    attachmentSaveIndex = allAttachments.length;
+  } catch (err) {
+    console.error('Error guardando progreso:', err);
+  }
+}
+
+async function finalizeConversation() {
+  try {
+    await db.collection('conversaciones').doc(currentDocId).set({
+      status: 'done',
+      brief: lastBriefMarkdown,
+      endedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+  } catch (err) {
+    console.error('Error guardando el brief final:', err);
+  }
+}
+
+document.getElementById('reg-dni').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startSession();
 });
 </script>
 </body>
