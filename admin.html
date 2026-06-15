@@ -58,6 +58,13 @@
   .btn-primary{background:linear-gradient(135deg,var(--copper),var(--amber));color:#1a1206;border:none;}
   .badge{font-size:11px;background:var(--gray-2);border:0.5px solid var(--gray-3);border-radius:99px;padding:3px 10px;color:var(--gray-5);}
   #loading{text-align:center;color:var(--gray-5);padding:40px;font-size:13px;}
+
+  /* FILTER */
+  #filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;}
+  .filter-btn{background:var(--gray-2);border:0.5px solid var(--gray-3);color:var(--gray-5);border-radius:99px;padding:7px 16px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.15s;}
+  .filter-btn:hover{border-color:var(--copper);color:var(--amber);}
+  .filter-btn.active{background:var(--copper-dim, rgba(184,115,51,0.15));border-color:var(--copper);color:var(--amber);}
+  .badge-industria{font-size:11px;background:rgba(184,115,51,0.12);border:0.5px solid rgba(184,115,51,0.3);border-radius:99px;padding:3px 10px;color:var(--amber);}
 </style>
 </head>
 <body>
@@ -94,6 +101,17 @@
 
   <!-- APP -->
   <div id="app-view">
+    <div id="filter-bar" style="display:none">
+      <button class="filter-btn active" data-filter="Todos" onclick="setFilter('Todos', this)">Todos</button>
+      <button class="filter-btn" data-filter="Retail" onclick="setFilter('Retail', this)">Retail</button>
+      <button class="filter-btn" data-filter="Alimentos y bebidas" onclick="setFilter('Alimentos y bebidas', this)">Alimentos y bebidas</button>
+      <button class="filter-btn" data-filter="Salud y bienestar" onclick="setFilter('Salud y bienestar', this)">Salud y bienestar</button>
+      <button class="filter-btn" data-filter="Educación" onclick="setFilter('Educación', this)">Educación</button>
+      <button class="filter-btn" data-filter="Servicios" onclick="setFilter('Servicios', this)">Servicios</button>
+      <button class="filter-btn" data-filter="Tecnología" onclick="setFilter('Tecnología', this)">Tecnología</button>
+      <button class="filter-btn" data-filter="Construcción e inmobiliaria" onclick="setFilter('Construcción e inmobiliaria', this)">Construcción e inmobiliaria</button>
+      <button class="filter-btn" data-filter="Otro" onclick="setFilter('Otro', this)">Otro</button>
+    </div>
     <div id="loading">Cargando conversaciones...</div>
     <div id="conv-list"></div>
   </div>
@@ -201,6 +219,8 @@ async function loadConversations() {
       return;
     }
 
+    document.getElementById('filter-bar').style.display = 'flex';
+
     snap.forEach(doc => {
       const data = doc.data();
       const dateLabel = formatDate(data.createdAt);
@@ -213,12 +233,14 @@ async function loadConversations() {
 
       const card = document.createElement('div');
       card.className = 'conv-card';
+      card.dataset.industria = data.industria || '';
       card.innerHTML = `
         <div class="conv-meta">
           <div class="conv-meta-row"><span class="conv-meta-label">Empresa</span><span>${data.empresa || '-'}</span></div>
           <div class="conv-meta-row"><span class="conv-meta-label">Nombres completos</span><span>${fullName}</span></div>
           <div class="conv-meta-row"><span class="conv-meta-label">DNI</span><span>${data.dni || '-'}</span></div>
           <div class="conv-meta-row"><span class="conv-meta-label">Rol en la empresa</span><span>${data.rol || '-'}</span></div>
+          <div class="conv-meta-row"><span class="conv-meta-label">Industria</span><span class="badge-industria">${data.industria || '-'}</span></div>
         </div>
         <div class="conv-header">
           <div class="conv-date">Iniciado: ${dateLabel} &nbsp;·&nbsp; Última actividad: ${updatedLabel}</div>
@@ -277,6 +299,17 @@ async function loadConversations() {
     loadingEl.textContent = 'Error al cargar las conversaciones. Revisa la consola para más detalles.';
     console.error(err);
   }
+}
+
+let activeFilter = 'Todos';
+function setFilter(value, btn) {
+  activeFilter = value;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.conv-card').forEach(card => {
+    const industria = card.dataset.industria || '';
+    card.style.display = (value === 'Todos' || industria === value) ? 'block' : 'none';
+  });
 }
 </script>
 </body>
