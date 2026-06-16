@@ -9,7 +9,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root {
     --black: #0B1120; --gray-1: #111827; --gray-2: #1A2235; --gray-3: #243044;
@@ -189,323 +188,301 @@ function downloadText(filename, content) {
   URL.revokeObjectURL(url);
 }
 
-function downloadBriefAsPDF(brief, meta, dateLabel) {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-
-  const C  = [184, 115, 51];   // copper
-  const A  = [217, 119,  6];   // amber
-  const DK = [17,  24,  39];   // dark navy
-  const GR = [100, 116, 139];  // gray
-  const W  = [255, 255, 255];
-  const BG = [248, 250, 252];  // ice
-  const LG = [243, 244, 246];  // light gray
-  const pageW = 210;
-  const M = 18;
-  const CW = pageW - M * 2;
-  let y = 0;
-  let currentPage = 1;
-
-  function addFooters(total) {
-    for (let p = 1; p <= total; p++) {
-      doc.setPage(p);
-      if (p > 1) {
-        doc.setFillColor(...LG);
-        doc.rect(0, 286, pageW, 11, 'F');
-        doc.setDrawColor(...C);
-        doc.setLineWidth(0.3);
-        doc.line(M, 286, pageW - M, 286);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7);
-        doc.setTextColor(...GR);
-        doc.text('EtraziApp — Documento de uso interno', M, 292);
-        doc.text('Pagina ' + p + ' de ' + total, pageW - M, 292, { align: 'right' });
+function openBriefHTML(brief, meta, dateLabel) {
+  function mdToHTML(md) {
+    const lines = md.split('\n');
+    let html = '';
+    let inList = false;
+    let inOL = false;
+    for (let i = 0; i < lines.length; i++) {
+      const raw = lines[i];
+      const line = raw.trim();
+      if (!line) {
+        if (inList) { html += '</ul>'; inList = false; }
+        if (inOL) { html += '</ol>'; inOL = false; }
+        continue;
+      }
+      if (line.startsWith('## ')) {
+        if (inList) { html += '</ul>'; inList = false; }
+        if (inOL) { html += '</ol>'; inOL = false; }
+        html += '<h2>' + esc(line.slice(3)) + '</h2>';
+      } else if (line.startsWith('### SECCION:')) {
+        if (inList) { html += '</ul>'; inList = false; }
+        if (inOL) { html += '</ol>'; inOL = false; }
+        html += '<h3>' + esc(line.replace('### SECCION:', '').trim()) + '</h3>';
+      } else if (line.startsWith('### ')) {
+        if (inList) { html += '</ul>'; inList = false; }
+        if (inOL) { html += '</ol>'; inOL = false; }
+        html += '<h3>' + esc(line.slice(4)) + '</h3>';
+      } else if (/^\d+\.\s/.test(line)) {
+        if (inList) { html += '</ul>'; inList = false; }
+        if (!inOL) { html += '<ol>'; inOL = true; }
+        html += '<li>' + inlineMd(line.replace(/^\d+\.\s*/, '')) + '</li>';
+      } else if (line.startsWith('- ') || line.startsWith('* ')) {
+        if (inOL) { html += '</ol>'; inOL = false; }
+        if (!inList) { html += '<ul>'; inList = true; }
+        html += '<li>' + inlineMd(line.slice(2)) + '</li>';
+      } else if (line.startsWith('**') && line.endsWith('**') && line.length > 4) {
+        if (inList) { html += '</ul>'; inList = false; }
+        if (inOL) { html += '</ol>'; inOL = false; }
+        html += '<p class="label-line">' + inlineMd(line) + '</p>';
+      } else if (line === '---') {
+        if (inList) { html += '</ul>'; inList = false; }
+        if (inOL) { html += '</ol>'; inOL = false; }
+        html += '<hr>';
+      } else {
+        if (inList) { html += '</ul>'; inList = false; }
+        if (inOL) { html += '</ol>'; inOL = false; }
+        html += '<p>' + inlineMd(line) + '</p>';
       }
     }
+    if (inList) html += '</ul>';
+    if (inOL) html += '</ol>';
+    return html;
+  }
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function inlineMd(s){
+    return s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>');
   }
 
-  function checkPage(needed) {
-    if (y + (needed || 8) > 280) {
-      doc.addPage();
-      currentPage++;
-      // running header on page 2+
-      doc.setFillColor(...DK);
-      doc.rect(0, 0, pageW, 8, 'F');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7);
-      doc.setTextColor(...W);
-      doc.text('ETRAZIAapp — Brief de Levantamiento', M, 5.5);
-      doc.text(meta.empresa || '', pageW - M, 5.5, { align: 'right' });
-      y = 14;
-    }
-  }
+  const fullName = ((meta.nombres||'') + ' ' + (meta.apellidos||'')).trim() || '-';
+  const empresa  = meta.empresa || '-';
+  const briefHTML = mdToHTML(brief);
 
-  function writeText(text, opts) {
-    const font   = opts.font   || 'normal';
-    const size   = opts.size   || 9;
-    const color  = opts.color  || DK;
-    const indent = opts.indent || 0;
-    const before = opts.before || 0;
-    const after  = opts.after  || 4;
-    const bold   = opts.bold   || false;
-    const w      = opts.width  || (CW - indent);
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<title>Brief — ${empresa}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Inter:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+/* ── RESET ─────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 
-    if (before) { checkPage(before + size / 2); y += before; }
-    doc.setFont('helvetica', bold ? 'bold' : font);
-    doc.setFontSize(size);
-    doc.setTextColor(...color);
-    const lines = doc.splitTextToSize(text, w);
-    lines.forEach((ln, i) => {
-      checkPage(size / 2 + 2);
-      doc.text(ln, M + indent, y);
-      if (i < lines.length - 1) y += size * 0.45;
-    });
-    y += after;
-  }
+/* ── TOKENS ─────────────────────────────────────────── */
+:root{
+  --copper:#B87333;--amber:#D97706;--dark:#111827;
+  --gray:#6B7280;--light:#F3F4F6;--white:#FFFFFF;
+  --body:#1F2937;--rule:rgba(184,115,51,0.25);
+  --font-head:'Montserrat',sans-serif;
+  --font-body:'Inter',sans-serif;
+}
 
-  // ── COVER PAGE ──────────────────────────────────────────────────────────────
-  // dark top band
-  doc.setFillColor(...DK);
-  doc.rect(0, 0, pageW, 90, 'F');
+/* ── SCREEN ─────────────────────────────────────────── */
+@media screen{
+  body{background:#E5E7EB;padding:32px 16px;min-height:100vh;}
+  .page{background:var(--white);width:794px;margin:0 auto 32px;
+        box-shadow:0 8px 40px rgba(0,0,0,0.18);border-radius:4px;overflow:hidden;}
+  .print-bar{background:var(--dark);color:var(--white);padding:12px 24px;
+             display:flex;align-items:center;justify-content:space-between;
+             font-family:var(--font-body);font-size:13px;position:sticky;top:0;z-index:100;}
+  .print-bar button{background:var(--copper);color:#fff;border:none;border-radius:6px;
+                    padding:8px 20px;font-size:13px;font-weight:600;cursor:pointer;
+                    font-family:var(--font-body);}
+  .print-bar button:hover{background:var(--amber);}
+}
 
-  // copper accent stripe
-  doc.setFillColor(...C);
-  doc.rect(0, 90, pageW, 3, 'F');
+/* ── PRINT ─────────────────────────────────────────── */
+@media print{
+  body{background:none;padding:0;margin:0;}
+  .print-bar,.no-print{display:none!important;}
+  .page{box-shadow:none;width:100%;margin:0;border-radius:0;}
+  h2,h3{break-after:avoid;}
+  .section-block{break-inside:avoid;}
+  .cover{height:297mm;page-break-after:always;}
+}
 
-  // Logo text
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(28);
-  doc.setTextColor(...W);
-  doc.text('ETRAZIA', M, 38);
-  doc.setTextColor(...A);
-  doc.text('app', M + doc.getTextWidth('ETRAZIA') + 1, 38);
+/* ── COVER ─────────────────────────────────────────── */
+.cover{
+  background:var(--dark);
+  display:flex;flex-direction:column;
+  min-height:297mm;position:relative;overflow:hidden;
+}
+.cover-top{flex:1;padding:64px 56px 48px;position:relative;}
+.cover-stripe{height:4px;background:linear-gradient(90deg,var(--copper),var(--amber));}
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(...C);
-  doc.text('powered by Etrazia', M, 45);
+/* Logo */
+.logo-wrap{display:flex;align-items:center;gap:12px;margin-bottom:60px;}
+.logo-ring{width:44px;height:44px;flex-shrink:0;}
+.logo-text{font-family:var(--font-head);font-weight:800;font-size:22px;letter-spacing:0.04em;color:var(--white);}
+.logo-text em{color:var(--amber);font-style:normal;font-weight:400;}
+.logo-powered{font-family:var(--font-body);font-size:10px;letter-spacing:0.14em;color:var(--copper);text-transform:uppercase;display:block;margin-top:2px;}
 
-  // diamond accent
-  const dmx = pageW - M - 12;
-  const dmy = 30;
-  doc.setFillColor(...A);
-  doc.setDrawColor(...A);
-  const ds = 10;
-  doc.lines([[ds, ds], [ds, -ds], [-ds, -ds], [-ds, ds]], dmx, dmy, [1, 1], 'FD');
+/* Cover content */
+.cover-label{font-family:var(--font-body);font-size:11px;letter-spacing:0.18em;color:var(--gray);text-transform:uppercase;margin-bottom:18px;}
+.cover-title{font-family:var(--font-head);font-weight:900;font-size:42px;color:var(--white);line-height:1.1;margin-bottom:14px;letter-spacing:-0.01em;}
+.cover-sub{font-family:var(--font-body);font-size:14px;color:var(--gray);margin-bottom:60px;}
 
-  // cover title
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(...GR);
-  doc.text('BRIEF DE LEVANTAMIENTO DE REQUERIMIENTOS', M, 62);
+/* Diamond */
+.diamond{position:absolute;right:56px;top:64px;width:72px;height:72px;
+         background:var(--amber);transform:rotate(45deg);opacity:0.9;}
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.setTextColor(...W);
-  doc.text(meta.empresa || 'Cliente', M, 74);
+/* Contact card */
+.cover-card{background:rgba(255,255,255,0.05);border:1px solid rgba(184,115,51,0.3);
+            border-left:3px solid var(--copper);padding:28px 32px;border-radius:3px;
+            max-width:520px;}
+.cover-card-title{font-family:var(--font-head);font-weight:700;font-size:10px;
+                  letter-spacing:0.14em;color:var(--copper);text-transform:uppercase;
+                  margin-bottom:20px;}
+.cover-card-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 32px;}
+.cover-field label{font-family:var(--font-body);font-size:9px;letter-spacing:0.1em;
+                   color:var(--gray);text-transform:uppercase;display:block;margin-bottom:3px;}
+.cover-field span{font-family:var(--font-body);font-size:13px;color:var(--white);font-weight:500;}
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(...GR);
-  doc.text('Generado por el Asistente de Levantamiento EtraziApp', M, 82);
+/* Cover footer */
+.cover-footer{padding:20px 56px;border-top:1px solid rgba(255,255,255,0.06);
+              display:flex;justify-content:space-between;align-items:center;}
+.cover-footer-text{font-family:var(--font-body);font-size:10px;color:var(--gray);}
 
-  // Contact card on cover
-  const cy = 102;
-  doc.setFillColor(...LG);
-  doc.roundedRect(M, cy, CW, 50, 3, 3, 'F');
-  doc.setDrawColor(...C);
-  doc.setLineWidth(0.4);
-  doc.roundedRect(M, cy, CW, 50, 3, 3, 'S');
+/* ── CONTENT ─────────────────────────────────────────── */
+.content{padding:52px 60px 72px;}
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(...C);
-  doc.text('DATOS DEL CONTACTO', M + 6, cy + 9);
+h2{
+  font-family:var(--font-head);font-weight:800;font-size:13px;
+  letter-spacing:0.16em;text-transform:uppercase;
+  color:var(--white);
+  background:var(--dark);
+  padding:13px 20px;
+  border-left:4px solid var(--copper);
+  margin:40px 0 20px;
+}
+h2:first-child{margin-top:0;}
 
-  const fields = [
-    ['Empresa',          meta.empresa || '-'],
-    ['Nombres completos', ((meta.nombres || '') + ' ' + (meta.apellidos || '')).trim() || '-'],
-    ['DNI',              meta.dni || '-'],
-    ['Rol en la empresa', meta.rol || '-'],
-    ['Industria',        meta.industria || '-'],
-    ['Fecha de sesion',  dateLabel],
-  ];
-  let fy = cy + 17;
-  const col2 = M + 52;
-  fields.forEach(([label, val]) => {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
-    doc.setTextColor(...GR);
-    doc.text(label + ':', M + 6, fy);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...DK);
-    const wrapped = doc.splitTextToSize(val, CW - 58);
-    wrapped.forEach((wl, wi) => { doc.text(wl, col2, fy + wi * 4); });
-    fy += 7;
-  });
+h3{
+  font-family:var(--font-head);font-weight:700;font-size:11px;
+  letter-spacing:0.12em;text-transform:uppercase;
+  color:var(--copper);
+  padding:10px 16px;
+  background:var(--light);
+  border-left:3px solid var(--copper);
+  margin:28px 0 14px;
+}
 
-  // cover footer
-  doc.setFillColor(...DK);
-  doc.rect(0, 265, pageW, 32, 'F');
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(...GR);
-  doc.text('Documento de uso interno — EtraziApp', M, 278);
-  doc.text('www.etraziapp.com', pageW - M, 278, { align: 'right' });
+p{
+  font-family:var(--font-body);font-size:10.5pt;color:var(--body);
+  line-height:1.75;text-align:justify;margin-bottom:12px;
+  font-weight:400;
+}
 
-  // ── CONTENT PAGES ────────────────────────────────────────────────────────────
-  doc.addPage();
-  currentPage = 2;
-  // page 2 header
-  doc.setFillColor(...DK);
-  doc.rect(0, 0, pageW, 8, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7);
-  doc.setTextColor(...W);
-  doc.text('ETRAZIAapp — Brief de Levantamiento', M, 5.5);
-  doc.text(meta.empresa || '', pageW - M, 5.5, { align: 'right' });
-  y = 16;
+.label-line{font-weight:600;color:var(--dark);}
+.label-line strong{color:var(--copper);}
 
-  // parse markdown
-  const lines = brief.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i];
-    const line = raw.trim();
-    if (!line) { y += 2; continue; }
+ul{margin:8px 0 16px 0;padding:0;list-style:none;}
+ul li{
+  font-family:var(--font-body);font-size:10pt;color:var(--body);
+  line-height:1.65;padding:5px 0 5px 22px;position:relative;
+  border-bottom:1px solid var(--light);text-align:left;
+}
+ul li:last-child{border-bottom:none;}
+ul li::before{content:'';position:absolute;left:4px;top:13px;
+              width:7px;height:7px;border-radius:50%;
+              background:var(--copper);}
+ul li strong{color:var(--dark);}
 
-    if (line.startsWith('## ')) {
-      // H2 — major section
-      checkPage(16);
-      y += 4;
-      doc.setFillColor(...DK);
-      doc.rect(M, y - 5, CW, 9, 'F');
-      doc.setFillColor(...C);
-      doc.rect(M, y - 5, 3, 9, 'F');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(...W);
-      doc.text(line.replace('## ', '').toUpperCase(), M + 6, y + 0.5);
-      y += 8;
+ol{margin:10px 0 16px 0;padding:0;list-style:none;counter-reset:ol-counter;}
+ol li{
+  font-family:var(--font-body);font-size:10pt;color:var(--body);
+  line-height:1.65;padding:12px 14px 12px 52px;
+  position:relative;counter-increment:ol-counter;
+  border:1px solid var(--rule);border-radius:4px;margin-bottom:10px;
+  background:var(--white);text-align:left;
+}
+ol li::before{
+  content:counter(ol-counter);
+  position:absolute;left:14px;top:50%;transform:translateY(-50%);
+  width:26px;height:26px;border-radius:50%;
+  background:var(--copper);color:var(--white);
+  font-family:var(--font-head);font-size:11px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  line-height:1;
+}
+ol li strong{color:var(--dark);font-weight:700;display:block;margin-bottom:4px;}
 
-    } else if (line.startsWith('### SECCION:')) {
-      // Section header
-      checkPage(14);
-      y += 5;
-      const title = line.replace('### SECCION:', '').trim();
-      doc.setFillColor(...BG);
-      doc.setDrawColor(...C);
-      doc.setLineWidth(0.4);
-      doc.rect(M, y - 5, CW, 8, 'FD');
-      doc.setFillColor(...C);
-      doc.rect(M, y - 5, 2, 8, 'F');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(...C);
-      doc.text(title.toUpperCase(), M + 5, y);
-      y += 7;
+hr{border:none;border-top:1px solid var(--rule);margin:28px 0;}
 
-    } else if (line.startsWith('**') && line.includes(':**')) {
-      // Bold label line e.g. **Hallazgos:**
-      const labelMatch = line.match(/^\*\*(.+?):\*\*\s*(.*)/);
-      if (labelMatch) {
-        checkPage(8);
-        const label = labelMatch[1];
-        const rest  = labelMatch[2];
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8.5);
-        doc.setTextColor(...C);
-        const lw = doc.getTextWidth(label + ': ');
-        doc.text(label + ':', M, y);
-        if (rest) {
-          doc.setFont('helvetica', 'normal');
-          doc.setTextColor(...DK);
-          const wrapped = doc.splitTextToSize(rest, CW - lw);
-          wrapped.forEach((wl, wi) => {
-            checkPage(5);
-            doc.text(wl, M + lw, y + wi * 4.5);
-          });
-          y += wrapped.length * 4.5 + 1;
-        } else {
-          y += 5;
-        }
-      }
+.section-block{margin-bottom:8px;}
 
-    } else if (/^\d+\.\s+\*\*/.test(line)) {
-      // Numbered list with bold title
-      checkPage(12);
-      const numMatch = line.match(/^(\d+)\.\s+\*\*(.+?)\*\*\s*(.*)/);
-      if (numMatch) {
-        const num   = numMatch[1];
-        const title = numMatch[2];
-        const rest  = numMatch[3];
-        y += 3;
-        doc.setFillColor(...C);
-        doc.circle(M + 3, y - 1.5, 3, 'F');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7.5);
-        doc.setTextColor(...W);
-        doc.text(num, M + 3, y - 0.5, { align: 'center' });
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.setTextColor(...DK);
-        doc.text(title, M + 9, y);
-        y += 5;
-        if (rest) {
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(8.5);
-          doc.setTextColor(...DK);
-          const wrapped = doc.splitTextToSize(rest, CW - 9);
-          wrapped.forEach(wl => { checkPage(5); doc.text(wl, M + 9, y); y += 4.5; });
-        }
-        // look ahead for continuation lines
-        while (i + 1 < lines.length && lines[i+1].trim() && !lines[i+1].trim().startsWith('#') && !lines[i+1].trim().startsWith('**') && !/^\d+\./.test(lines[i+1].trim())) {
-          i++;
-          const cont = lines[i].trim().replace(/\*\*(.+?)\*\*/g, '$1');
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(8.5);
-          doc.setTextColor(...DK);
-          const wrapped = doc.splitTextToSize(cont, CW - 9);
-          wrapped.forEach(wl => { checkPage(5); doc.text(wl, M + 9, y); y += 4.5; });
-        }
-        y += 3;
-      }
+/* ── PAGE HEADERS (print only) ─────────────────────── */
+@media print{
+  .page-header{display:flex;justify-content:space-between;align-items:center;
+               padding:10px 60px;background:var(--dark);margin-bottom:0;}
+  .page-header span{font-family:var(--font-body);font-size:8pt;color:var(--gray);}
+  .page-footer{position:fixed;bottom:0;left:0;right:0;
+               padding:8px 60px;background:var(--light);
+               display:flex;justify-content:space-between;
+               border-top:1px solid var(--rule);}
+  .page-footer span{font-family:var(--font-body);font-size:8pt;color:var(--gray);}
+}
+@media screen{.page-header{display:none;}}
+</style>
+</head>
+<body>
 
-    } else if (line.startsWith('- ') || line.startsWith('* ')) {
-      checkPage(7);
-      const text = line.replace(/^[-*]\s*/, '').replace(/\*\*(.+?)\*\*/g, '$1');
-      doc.setFillColor(...C);
-      doc.circle(M + 2.5, y - 1.5, 1.2, 'F');
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8.5);
-      doc.setTextColor(...DK);
-      const wrapped = doc.splitTextToSize(text, CW - 7);
-      wrapped.forEach((wl, wi) => { checkPage(5); doc.text(wl, M + 7, y + wi * 4.5); });
-      y += wrapped.length * 4.5 + 1;
+<div class="print-bar no-print">
+  <span><strong>Brief — ${empresa}</strong> &nbsp;·&nbsp; ${dateLabel}</span>
+  <button onclick="window.print()">Imprimir / Guardar PDF</button>
+</div>
 
-    } else if (line.startsWith('---')) {
-      checkPage(6);
-      y += 2;
-      doc.setDrawColor(...C);
-      doc.setLineWidth(0.2);
-      doc.line(M, y, pageW - M, y);
-      y += 4;
+<div class="page">
 
-    } else {
-      // normal paragraph
-      checkPage(7);
-      const text = line.replace(/\*\*(.+?)\*\*/g, '$1');
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8.5);
-      doc.setTextColor(...DK);
-      const wrapped = doc.splitTextToSize(text, CW);
-      wrapped.forEach((wl, wi) => { checkPage(5); doc.text(wl, M, y + wi * 4.5); });
-      y += wrapped.length * 4.5 + 2;
-    }
-  }
+<!-- COVER -->
+<div class="cover">
+  <div class="diamond"></div>
+  <div class="cover-top">
 
-  addFooters(doc.getNumberOfPages());
-  const empresa = (meta.empresa || 'brief').replace(/\s+/g, '_').toLowerCase();
-  doc.save('brief_' + empresa + '.pdf');
+    <div class="logo-wrap">
+      <svg class="logo-ring" viewBox="0 0 44 44" fill="none">
+        <path d="M16 22C16 15.37 21.37 10 28 10C34.63 10 40 15.37 40 22C40 28.63 34.63 34 28 34" stroke="#1B2B4B" stroke-width="5" fill="none" stroke-linecap="round"/>
+        <path d="M28 22C28 28.63 22.63 34 16 34C9.37 34 4 28.63 4 22C4 15.37 9.37 10 16 10" stroke="url(#lg1)" stroke-width="5" fill="none" stroke-linecap="round"/>
+        <rect x="17.5" y="17.5" width="9" height="9" rx="1.5" fill="#D97706" transform="rotate(45 22 22)"/>
+        <defs><linearGradient id="lg1" x1="28" y1="10" x2="4" y2="34" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#B87333"/><stop offset="100%" stop-color="#D97706"/>
+        </linearGradient></defs>
+      </svg>
+      <div>
+        <div class="logo-text">ETRAZIA<em>app</em></div>
+        <span class="logo-powered">powered by Etrazia</span>
+      </div>
+    </div>
+
+    <div class="cover-label">Brief de Levantamiento de Requerimientos</div>
+    <h1 class="cover-title">${empresa}</h1>
+    <p class="cover-sub" style="color:#9CA3AF;font-family:var(--font-body);">Generado por el Asistente de Levantamiento EtraziApp</p>
+
+    <div class="cover-card">
+      <div class="cover-card-title">Datos del contacto</div>
+      <div class="cover-card-grid">
+        <div class="cover-field"><label>Empresa</label><span>${empresa}</span></div>
+        <div class="cover-field"><label>Nombres completos</label><span>${fullName}</span></div>
+        <div class="cover-field"><label>DNI</label><span>${meta.dni||'-'}</span></div>
+        <div class="cover-field"><label>Rol en la empresa</label><span>${meta.rol||'-'}</span></div>
+        <div class="cover-field"><label>Industria</label><span>${meta.industria||'-'}</span></div>
+        <div class="cover-field"><label>Fecha de sesión</label><span>${dateLabel}</span></div>
+      </div>
+    </div>
+
+  </div>
+  <div class="cover-stripe"></div>
+  <div class="cover-footer">
+    <span class="cover-footer-text">EtraziApp &mdash; Documento de uso interno</span>
+    <span class="cover-footer-text">www.etraziapp.com</span>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+${briefHTML}
+</div>
+
+</div><!-- /.page -->
+</body>
+</html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
 }
 
 function conversationToText(conversationLog, meta, createdAtLabel) {
@@ -571,7 +548,7 @@ async function loadConversations() {
         </div>
         <div class="conv-preview">${isDone ? extractPreview(data.brief) : 'Conversación aún en curso — brief no disponible todavía.'}</div>
         <div class="conv-actions">
-          <button class="btn btn-primary" data-action="brief" ${isDone ? '' : 'disabled'}>📋 Descargar brief (PDF)</button>
+          <button class="btn btn-primary" data-action="brief" ${isDone ? '' : 'disabled'}>📋 Ver brief (PDF)</button>
           <button class="btn" data-action="conv">💬 Descargar conversación (.txt)</button>
           <button class="btn" data-action="attachments">📎 Ver adjuntos</button>
         </div>
@@ -581,7 +558,7 @@ async function loadConversations() {
       const briefBtn = card.querySelector('[data-action="brief"]');
       if (isDone) {
         briefBtn.addEventListener('click', () => {
-          downloadBriefAsPDF(data.brief || '', data, dateLabel);
+          openBriefHTML(data.brief || '', data, dateLabel);
         });
       }
       card.querySelector('[data-action="conv"]').addEventListener('click', () => {
