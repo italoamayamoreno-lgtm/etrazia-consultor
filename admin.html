@@ -9,6 +9,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root {
     --black: #0B1120; --gray-1: #111827; --gray-2: #1A2235; --gray-3: #243044;
@@ -188,6 +189,130 @@ function downloadText(filename, content) {
   URL.revokeObjectURL(url);
 }
 
+function downloadBriefAsPDF(brief, meta, dateLabel) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+  const COPPER = [184, 115, 51];
+  const DARK   = [17, 24, 39];
+  const GRAY   = [100, 116, 139];
+  const BLACK  = [0, 0, 0];
+  const pageW  = 210;
+  const margin = 18;
+  const contentW = pageW - margin * 2;
+  let y = 20;
+
+  function checkPage(needed = 10) {
+    if (y + needed > 275) { doc.addPage(); y = 20; }
+  }
+
+  // Header band
+  doc.setFillColor(...COPPER);
+  doc.rect(0, 0, pageW, 12, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(255, 255, 255);
+  doc.text('ETRAZIAapp — Brief de Levantamiento', margin, 8);
+  doc.text(dateLabel, pageW - margin, 8, { align: 'right' });
+
+  y = 22;
+
+  // Title
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(...DARK);
+  doc.text('Brief de Levantamiento', margin, y);
+  y += 8;
+
+  // Meta box
+  doc.setFillColor(243, 244, 246);
+  doc.roundedRect(margin, y, contentW, 28, 2, 2, 'F');
+  const metaItems = [
+    ['Empresa', meta.empresa || '-'],
+    ['Nombres completos', `${meta.nombres || ''} ${meta.apellidos || ''}`.trim() || '-'],
+    ['DNI', meta.dni || '-'],
+    ['Rol', meta.rol || '-'],
+    ['Industria', meta.industria || '-'],
+  ];
+  doc.setFontSize(8.5);
+  let mx = margin + 4;
+  let my = y + 6;
+  metaItems.forEach(([label, value], i) => {
+    if (i === 3) { mx = margin + contentW / 2 + 4; my = y + 6; }
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...GRAY);
+    doc.text(label + ':', mx, my);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...DARK);
+    doc.text(value, mx + 28, my);
+    if (i !== 2) my += 6;
+  });
+  y += 32;
+
+  // Parse and render markdown sections
+  const lines = brief.split('\n');
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) { y += 2; continue; }
+
+    if (line.startsWith('### ')) {
+      checkPage(14);
+      y += 4;
+      doc.setFillColor(...COPPER);
+      doc.rect(margin, y - 4, contentW, 7, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(255, 255, 255);
+      doc.text(line.replace('### ', '').toUpperCase(), margin + 3, y + 0.5);
+      y += 6;
+    } else if (line.startsWith('- ') || line.startsWith('* ')) {
+      checkPage(7);
+      const text = line.replace(/^[-*]\s*/, '').replace(/\*\*(.+?)\*\*/g, '$1');
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(...BLACK);
+      doc.setFillColor(...COPPER);
+      doc.circle(margin + 2, y - 1.2, 1, 'F');
+      const wrapped = doc.splitTextToSize(text, contentW - 8);
+      wrapped.forEach((wl, wi) => {
+        checkPage(5);
+        doc.text(wl, margin + 6, y);
+        if (wi < wrapped.length - 1) y += 5;
+      });
+      y += 5.5;
+    } else {
+      checkPage(7);
+      const text = line.replace(/\*\*(.+?)\*\*/g, '$1');
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(...BLACK);
+      const wrapped = doc.splitTextToSize(text, contentW);
+      wrapped.forEach((wl, wi) => {
+        checkPage(5);
+        doc.text(wl, margin, y);
+        if (wi < wrapped.length - 1) y += 5;
+      });
+      y += 5.5;
+    }
+  }
+
+  // Footer on each page
+  const totalPages = doc.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFillColor(243, 244, 246);
+    doc.rect(0, 287, pageW, 10, 'F');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...GRAY);
+    doc.text('Documento de uso interno — Etrazia', margin, 293);
+    doc.text(`Página ${p} de ${totalPages}`, pageW - margin, 293, { align: 'right' });
+  }
+
+  const empresa = (meta.empresa || 'brief').replace(/\s+/g, '_').toLowerCase();
+  doc.save(`brief_${empresa}.pdf`);
+}
+
 function conversationToText(conversationLog, meta, createdAtLabel) {
   let out = `Conversación — ${createdAtLabel}\n`;
   out += `Empresa: ${meta.empresa || '-'}\n`;
@@ -251,7 +376,7 @@ async function loadConversations() {
         </div>
         <div class="conv-preview">${isDone ? extractPreview(data.brief) : 'Conversación aún en curso — brief no disponible todavía.'}</div>
         <div class="conv-actions">
-          <button class="btn btn-primary" data-action="brief" ${isDone ? '' : 'disabled'}>📋 Descargar brief (.md)</button>
+          <button class="btn btn-primary" data-action="brief" ${isDone ? '' : 'disabled'}>📋 Descargar brief (PDF)</button>
           <button class="btn" data-action="conv">💬 Descargar conversación (.txt)</button>
           <button class="btn" data-action="attachments">📎 Ver adjuntos</button>
         </div>
@@ -261,7 +386,7 @@ async function loadConversations() {
       const briefBtn = card.querySelector('[data-action="brief"]');
       if (isDone) {
         briefBtn.addEventListener('click', () => {
-          downloadText(`brief_${doc.id}.md`, data.brief || '(sin brief)');
+          downloadBriefAsPDF(data.brief || '', data, dateLabel);
         });
       }
       card.querySelector('[data-action="conv"]').addEventListener('click', () => {
