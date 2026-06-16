@@ -551,6 +551,7 @@ async function loadConversations() {
           <button class="btn btn-primary" data-action="brief" ${isDone ? '' : 'disabled'}>📋 Ver brief (PDF)</button>
           <button class="btn" data-action="conv">💬 Descargar conversación (.txt)</button>
           <button class="btn" data-action="attachments">📎 Ver adjuntos</button>
+          <button class="btn" data-action="delete" style="border-color:#ef4444;color:#ef4444;margin-left:auto">🗑 Eliminar</button>
         </div>
         <div class="conv-attachments" style="display:none;margin-top:10px;"></div>
       `;
@@ -564,8 +565,7 @@ async function loadConversations() {
       card.querySelector('[data-action="conv"]').addEventListener('click', () => {
         downloadText(`conversacion_${doc.id}.txt`, conversationToText(data.conversationLog, data, dateLabel));
       });
-      card.querySelector('[data-action="attachments"]').addEventListener('click', async (e) => {
-        const box = card.querySelector('.conv-attachments');
+      card.querySelector('[data-action="attachments"]').addEventListener('click', async (e) => {        const box = card.querySelector('.conv-attachments');
         if (box.style.display === 'block') { box.style.display = 'none'; return; }
         box.style.display = 'block';
         if (box.dataset.loaded) return;
@@ -588,6 +588,23 @@ async function loadConversations() {
           });
         }
         box.dataset.loaded = '1';
+      });
+
+      card.querySelector('[data-action="delete"]').addEventListener('click', async () => {
+        const confirmDelete = window.confirm(`¿Eliminar la conversación de ${fullName} (${data.empresa || '-'})?\n\nEsta acción no se puede deshacer.`);
+        if (!confirmDelete) return;
+        try {
+          // delete adjuntos subcollection first
+          const attSnap = await doc.ref.collection('adjuntos').get();
+          const batch = db.batch();
+          attSnap.forEach(a => batch.delete(a.ref));
+          batch.delete(doc.ref);
+          await batch.commit();
+          card.remove();
+        } catch (err) {
+          alert('Error al eliminar. Intenta de nuevo.');
+          console.error(err);
+        }
       });
 
       listEl.appendChild(card);
