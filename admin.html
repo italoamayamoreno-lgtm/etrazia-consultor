@@ -172,9 +172,9 @@ function formatDate(ts) {
 
 function extractPreview(brief) {
   if (!brief) return 'Brief aún no disponible.';
-  const match = brief.match(/### Información general\s*\n([\s\S]*?)(\n###|$)/);
+  const match = brief.match(/## RESUMEN EJECUTIVO\s*\n([\s\S]*?)(\n##|$)/);
   const text = match ? match[1] : brief;
-  return text.replace(/[-*]\s*/g, '').replace(/\n+/g, ' ').trim().slice(0, 220);
+  return text.replace(/[-*#]\s*/g, '').replace(/\n+/g, ' ').trim().slice(0, 220);
 }
 
 function downloadText(filename, content) {
@@ -193,124 +193,319 @@ function downloadBriefAsPDF(brief, meta, dateLabel) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
 
-  const COPPER = [184, 115, 51];
-  const DARK   = [17, 24, 39];
-  const GRAY   = [100, 116, 139];
-  const BLACK  = [0, 0, 0];
-  const pageW  = 210;
-  const margin = 18;
-  const contentW = pageW - margin * 2;
-  let y = 20;
+  const C  = [184, 115, 51];   // copper
+  const A  = [217, 119,  6];   // amber
+  const DK = [17,  24,  39];   // dark navy
+  const GR = [100, 116, 139];  // gray
+  const W  = [255, 255, 255];
+  const BG = [248, 250, 252];  // ice
+  const LG = [243, 244, 246];  // light gray
+  const pageW = 210;
+  const M = 18;
+  const CW = pageW - M * 2;
+  let y = 0;
+  let currentPage = 1;
 
-  function checkPage(needed = 10) {
-    if (y + needed > 275) { doc.addPage(); y = 20; }
-  }
-
-  // Header band
-  doc.setFillColor(...COPPER);
-  doc.rect(0, 0, pageW, 12, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(255, 255, 255);
-  doc.text('ETRAZIAapp — Brief de Levantamiento', margin, 8);
-  doc.text(dateLabel, pageW - margin, 8, { align: 'right' });
-
-  y = 22;
-
-  // Title
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.setTextColor(...DARK);
-  doc.text('Brief de Levantamiento', margin, y);
-  y += 8;
-
-  // Meta box
-  doc.setFillColor(243, 244, 246);
-  doc.roundedRect(margin, y, contentW, 28, 2, 2, 'F');
-  const metaItems = [
-    ['Empresa', meta.empresa || '-'],
-    ['Nombres completos', `${meta.nombres || ''} ${meta.apellidos || ''}`.trim() || '-'],
-    ['DNI', meta.dni || '-'],
-    ['Rol', meta.rol || '-'],
-    ['Industria', meta.industria || '-'],
-  ];
-  doc.setFontSize(8.5);
-  let mx = margin + 4;
-  let my = y + 6;
-  metaItems.forEach(([label, value], i) => {
-    if (i === 3) { mx = margin + contentW / 2 + 4; my = y + 6; }
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...GRAY);
-    doc.text(label + ':', mx, my);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...DARK);
-    doc.text(value, mx + 28, my);
-    if (i !== 2) my += 6;
-  });
-  y += 32;
-
-  // Parse and render markdown sections
-  const lines = brief.split('\n');
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line) { y += 2; continue; }
-
-    if (line.startsWith('### ')) {
-      checkPage(14);
-      y += 4;
-      doc.setFillColor(...COPPER);
-      doc.rect(margin, y - 4, contentW, 7, 'F');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(255, 255, 255);
-      doc.text(line.replace('### ', '').toUpperCase(), margin + 3, y + 0.5);
-      y += 6;
-    } else if (line.startsWith('- ') || line.startsWith('* ')) {
-      checkPage(7);
-      const text = line.replace(/^[-*]\s*/, '').replace(/\*\*(.+?)\*\*/g, '$1');
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(...BLACK);
-      doc.setFillColor(...COPPER);
-      doc.circle(margin + 2, y - 1.2, 1, 'F');
-      const wrapped = doc.splitTextToSize(text, contentW - 8);
-      wrapped.forEach((wl, wi) => {
-        checkPage(5);
-        doc.text(wl, margin + 6, y);
-        if (wi < wrapped.length - 1) y += 5;
-      });
-      y += 5.5;
-    } else {
-      checkPage(7);
-      const text = line.replace(/\*\*(.+?)\*\*/g, '$1');
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(...BLACK);
-      const wrapped = doc.splitTextToSize(text, contentW);
-      wrapped.forEach((wl, wi) => {
-        checkPage(5);
-        doc.text(wl, margin, y);
-        if (wi < wrapped.length - 1) y += 5;
-      });
-      y += 5.5;
+  function addFooters(total) {
+    for (let p = 1; p <= total; p++) {
+      doc.setPage(p);
+      if (p > 1) {
+        doc.setFillColor(...LG);
+        doc.rect(0, 286, pageW, 11, 'F');
+        doc.setDrawColor(...C);
+        doc.setLineWidth(0.3);
+        doc.line(M, 286, pageW - M, 286);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(...GR);
+        doc.text('EtraziApp — Documento de uso interno', M, 292);
+        doc.text('Pagina ' + p + ' de ' + total, pageW - M, 292, { align: 'right' });
+      }
     }
   }
 
-  // Footer on each page
-  const totalPages = doc.getNumberOfPages();
-  for (let p = 1; p <= totalPages; p++) {
-    doc.setPage(p);
-    doc.setFillColor(243, 244, 246);
-    doc.rect(0, 287, pageW, 10, 'F');
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    doc.setTextColor(...GRAY);
-    doc.text('Documento de uso interno — Etrazia', margin, 293);
-    doc.text(`Página ${p} de ${totalPages}`, pageW - margin, 293, { align: 'right' });
+  function checkPage(needed) {
+    if (y + (needed || 8) > 280) {
+      doc.addPage();
+      currentPage++;
+      // running header on page 2+
+      doc.setFillColor(...DK);
+      doc.rect(0, 0, pageW, 8, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(...W);
+      doc.text('ETRAZIAapp — Brief de Levantamiento', M, 5.5);
+      doc.text(meta.empresa || '', pageW - M, 5.5, { align: 'right' });
+      y = 14;
+    }
   }
 
+  function writeText(text, opts) {
+    const font   = opts.font   || 'normal';
+    const size   = opts.size   || 9;
+    const color  = opts.color  || DK;
+    const indent = opts.indent || 0;
+    const before = opts.before || 0;
+    const after  = opts.after  || 4;
+    const bold   = opts.bold   || false;
+    const w      = opts.width  || (CW - indent);
+
+    if (before) { checkPage(before + size / 2); y += before; }
+    doc.setFont('helvetica', bold ? 'bold' : font);
+    doc.setFontSize(size);
+    doc.setTextColor(...color);
+    const lines = doc.splitTextToSize(text, w);
+    lines.forEach((ln, i) => {
+      checkPage(size / 2 + 2);
+      doc.text(ln, M + indent, y);
+      if (i < lines.length - 1) y += size * 0.45;
+    });
+    y += after;
+  }
+
+  // ── COVER PAGE ──────────────────────────────────────────────────────────────
+  // dark top band
+  doc.setFillColor(...DK);
+  doc.rect(0, 0, pageW, 90, 'F');
+
+  // copper accent stripe
+  doc.setFillColor(...C);
+  doc.rect(0, 90, pageW, 3, 'F');
+
+  // Logo text
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(28);
+  doc.setTextColor(...W);
+  doc.text('ETRAZIA', M, 38);
+  doc.setTextColor(...A);
+  doc.text('app', M + doc.getTextWidth('ETRAZIA') + 1, 38);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...C);
+  doc.text('powered by Etrazia', M, 45);
+
+  // diamond accent
+  const dmx = pageW - M - 12;
+  const dmy = 30;
+  doc.setFillColor(...A);
+  doc.setDrawColor(...A);
+  const ds = 10;
+  doc.lines([[ds, ds], [ds, -ds], [-ds, -ds], [-ds, ds]], dmx, dmy, [1, 1], 'FD');
+
+  // cover title
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(...GR);
+  doc.text('BRIEF DE LEVANTAMIENTO DE REQUERIMIENTOS', M, 62);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.setTextColor(...W);
+  doc.text(meta.empresa || 'Cliente', M, 74);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...GR);
+  doc.text('Generado por el Asistente de Levantamiento EtraziApp', M, 82);
+
+  // Contact card on cover
+  const cy = 102;
+  doc.setFillColor(...LG);
+  doc.roundedRect(M, cy, CW, 50, 3, 3, 'F');
+  doc.setDrawColor(...C);
+  doc.setLineWidth(0.4);
+  doc.roundedRect(M, cy, CW, 50, 3, 3, 'S');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(...C);
+  doc.text('DATOS DEL CONTACTO', M + 6, cy + 9);
+
+  const fields = [
+    ['Empresa',          meta.empresa || '-'],
+    ['Nombres completos', ((meta.nombres || '') + ' ' + (meta.apellidos || '')).trim() || '-'],
+    ['DNI',              meta.dni || '-'],
+    ['Rol en la empresa', meta.rol || '-'],
+    ['Industria',        meta.industria || '-'],
+    ['Fecha de sesion',  dateLabel],
+  ];
+  let fy = cy + 17;
+  const col2 = M + 52;
+  fields.forEach(([label, val]) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...GR);
+    doc.text(label + ':', M + 6, fy);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...DK);
+    const wrapped = doc.splitTextToSize(val, CW - 58);
+    wrapped.forEach((wl, wi) => { doc.text(wl, col2, fy + wi * 4); });
+    fy += 7;
+  });
+
+  // cover footer
+  doc.setFillColor(...DK);
+  doc.rect(0, 265, pageW, 32, 'F');
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...GR);
+  doc.text('Documento de uso interno — EtraziApp', M, 278);
+  doc.text('www.etraziapp.com', pageW - M, 278, { align: 'right' });
+
+  // ── CONTENT PAGES ────────────────────────────────────────────────────────────
+  doc.addPage();
+  currentPage = 2;
+  // page 2 header
+  doc.setFillColor(...DK);
+  doc.rect(0, 0, pageW, 8, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(...W);
+  doc.text('ETRAZIAapp — Brief de Levantamiento', M, 5.5);
+  doc.text(meta.empresa || '', pageW - M, 5.5, { align: 'right' });
+  y = 16;
+
+  // parse markdown
+  const lines = brief.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const line = raw.trim();
+    if (!line) { y += 2; continue; }
+
+    if (line.startsWith('## ')) {
+      // H2 — major section
+      checkPage(16);
+      y += 4;
+      doc.setFillColor(...DK);
+      doc.rect(M, y - 5, CW, 9, 'F');
+      doc.setFillColor(...C);
+      doc.rect(M, y - 5, 3, 9, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(...W);
+      doc.text(line.replace('## ', '').toUpperCase(), M + 6, y + 0.5);
+      y += 8;
+
+    } else if (line.startsWith('### SECCION:')) {
+      // Section header
+      checkPage(14);
+      y += 5;
+      const title = line.replace('### SECCION:', '').trim();
+      doc.setFillColor(...BG);
+      doc.setDrawColor(...C);
+      doc.setLineWidth(0.4);
+      doc.rect(M, y - 5, CW, 8, 'FD');
+      doc.setFillColor(...C);
+      doc.rect(M, y - 5, 2, 8, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(...C);
+      doc.text(title.toUpperCase(), M + 5, y);
+      y += 7;
+
+    } else if (line.startsWith('**') && line.includes(':**')) {
+      // Bold label line e.g. **Hallazgos:**
+      const labelMatch = line.match(/^\*\*(.+?):\*\*\s*(.*)/);
+      if (labelMatch) {
+        checkPage(8);
+        const label = labelMatch[1];
+        const rest  = labelMatch[2];
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(...C);
+        const lw = doc.getTextWidth(label + ': ');
+        doc.text(label + ':', M, y);
+        if (rest) {
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(...DK);
+          const wrapped = doc.splitTextToSize(rest, CW - lw);
+          wrapped.forEach((wl, wi) => {
+            checkPage(5);
+            doc.text(wl, M + lw, y + wi * 4.5);
+          });
+          y += wrapped.length * 4.5 + 1;
+        } else {
+          y += 5;
+        }
+      }
+
+    } else if (/^\d+\.\s+\*\*/.test(line)) {
+      // Numbered list with bold title
+      checkPage(12);
+      const numMatch = line.match(/^(\d+)\.\s+\*\*(.+?)\*\*\s*(.*)/);
+      if (numMatch) {
+        const num   = numMatch[1];
+        const title = numMatch[2];
+        const rest  = numMatch[3];
+        y += 3;
+        doc.setFillColor(...C);
+        doc.circle(M + 3, y - 1.5, 3, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(...W);
+        doc.text(num, M + 3, y - 0.5, { align: 'center' });
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(...DK);
+        doc.text(title, M + 9, y);
+        y += 5;
+        if (rest) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8.5);
+          doc.setTextColor(...DK);
+          const wrapped = doc.splitTextToSize(rest, CW - 9);
+          wrapped.forEach(wl => { checkPage(5); doc.text(wl, M + 9, y); y += 4.5; });
+        }
+        // look ahead for continuation lines
+        while (i + 1 < lines.length && lines[i+1].trim() && !lines[i+1].trim().startsWith('#') && !lines[i+1].trim().startsWith('**') && !/^\d+\./.test(lines[i+1].trim())) {
+          i++;
+          const cont = lines[i].trim().replace(/\*\*(.+?)\*\*/g, '$1');
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8.5);
+          doc.setTextColor(...DK);
+          const wrapped = doc.splitTextToSize(cont, CW - 9);
+          wrapped.forEach(wl => { checkPage(5); doc.text(wl, M + 9, y); y += 4.5; });
+        }
+        y += 3;
+      }
+
+    } else if (line.startsWith('- ') || line.startsWith('* ')) {
+      checkPage(7);
+      const text = line.replace(/^[-*]\s*/, '').replace(/\*\*(.+?)\*\*/g, '$1');
+      doc.setFillColor(...C);
+      doc.circle(M + 2.5, y - 1.5, 1.2, 'F');
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(...DK);
+      const wrapped = doc.splitTextToSize(text, CW - 7);
+      wrapped.forEach((wl, wi) => { checkPage(5); doc.text(wl, M + 7, y + wi * 4.5); });
+      y += wrapped.length * 4.5 + 1;
+
+    } else if (line.startsWith('---')) {
+      checkPage(6);
+      y += 2;
+      doc.setDrawColor(...C);
+      doc.setLineWidth(0.2);
+      doc.line(M, y, pageW - M, y);
+      y += 4;
+
+    } else {
+      // normal paragraph
+      checkPage(7);
+      const text = line.replace(/\*\*(.+?)\*\*/g, '$1');
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(...DK);
+      const wrapped = doc.splitTextToSize(text, CW);
+      wrapped.forEach((wl, wi) => { checkPage(5); doc.text(wl, M, y + wi * 4.5); });
+      y += wrapped.length * 4.5 + 2;
+    }
+  }
+
+  addFooters(doc.getNumberOfPages());
   const empresa = (meta.empresa || 'brief').replace(/\s+/g, '_').toLowerCase();
-  doc.save(`brief_${empresa}.pdf`);
+  doc.save('brief_' + empresa + '.pdf');
 }
 
 function conversationToText(conversationLog, meta, createdAtLabel) {
