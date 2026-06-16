@@ -523,7 +523,7 @@ function resolveContent(content) {
 }
 
 async function callClaude(userContent, mode, displayText, displayAttachments, storableUserContent) {
-  if (isLoading) return;
+  if (isLoading && mode !== 'brief') return;
   isLoading = true;
   document.getElementById('send-btn').disabled = true;
 
@@ -637,7 +637,8 @@ function endConversation() {
   conversationEnded = true;
   document.getElementById('input-bar').style.display = 'none';
   document.getElementById('ended-banner').style.display = 'block';
-  callClaude("GENERAR_BRIEF_FINAL", 'brief');
+  // Wait for isLoading to clear (we're still inside callClaude) then generate brief
+  setTimeout(() => callClaude("GENERAR_BRIEF_FINAL", 'brief'), 800);
 }
 
 // ---- Registro, retomar y guardado en Firestore ----
