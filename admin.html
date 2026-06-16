@@ -2,184 +2,75 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>Asistente de Levantamiento — EtraziApp</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Etrazia — Panel interno (Levantamientos)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root {
     --black: #0B1120; --gray-1: #111827; --gray-2: #1A2235; --gray-3: #243044;
-    --gray-4: #374151; --gray-5: #94A3B8; --gray-6: #CBD5E1;
-    --copper: #B87333; --amber: #D97706; --ice: #F8FAFC;
-    --copper-dim: rgba(184,115,51,0.12); --green: #4CAF7D;
+    --gray-5: #94A3B8; --gray-6: #CBD5E1;
+    --copper: #B87333; --amber: #D97706; --ice: #F8FAFC; --green: #4CAF7D;
   }
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-  html{height:100%;height:-webkit-fill-available;}
-  body{
-    background:var(--black); color:var(--ice); font-family:'Inter',sans-serif;
-    font-weight:300; height:100vh; height:100dvh; display:flex; flex-direction:column; overflow:hidden;
-    position:relative;
-  }
+  body{background:var(--black);color:var(--ice);font-family:'Inter',sans-serif;font-weight:300;min-height:100vh;}
   h1,h2,h3{font-family:'Montserrat',sans-serif;}
 
-  .bg-blob{position:fixed;border-radius:50%;filter:blur(70px);opacity:0.16;pointer-events:none;z-index:0;}
-  .bg-blob.b1{width:420px;height:420px;background:var(--copper);top:-140px;left:-120px;animation:drift1 24s ease-in-out infinite;}
-  .bg-blob.b2{width:460px;height:460px;background:var(--amber);bottom:-180px;right:-140px;animation:drift2 28s ease-in-out infinite;}
-  @keyframes drift1{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(70px,50px) scale(1.08);}}
-  @keyframes drift2{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(-60px,-40px) scale(1.05);}}
-
-  nav{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:rgba(17,24,39,0.85);backdrop-filter:blur(12px);border-bottom:0.5px solid rgba(184,115,51,0.15);flex-shrink:0;position:relative;z-index:2;}
+  nav{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:rgba(17,24,39,0.85);border-bottom:0.5px solid rgba(184,115,51,0.15);}
   .nav-logo{display:flex;align-items:center;gap:10px;}
-  .nav-logo svg{width:30px;height:30px;flex-shrink:0;}
-  .nav-title{display:flex;flex-direction:column;line-height:1.15;}
+  .nav-logo svg{width:30px;height:30px;}
   .nav-title b{font-family:'Montserrat',sans-serif;font-weight:800;font-size:15px;letter-spacing:0.04em;}
   .nav-title b span{color:var(--amber);font-weight:400;}
-  .nav-sub{font-size:9px;letter-spacing:0.16em;color:var(--gray-5);text-transform:uppercase;}
-  .nav-right{display:flex;align-items:center;gap:14px;}
-  .nav-badge{font-size:11px;color:var(--gray-5);display:flex;align-items:center;gap:6px;transition:color 0.2s;}
-  .pulse{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;flex-shrink:0;}
-  .nav-badge.thinking .pulse{background:var(--amber);animation:pulse 0.7s infinite;}
-  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+  .nav-sub{font-size:9px;letter-spacing:0.16em;color:var(--gray-5);text-transform:uppercase;display:block;}
+  #logout-btn{background:transparent;border:0.5px solid var(--gray-3);color:var(--gray-5);border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;}
+  #logout-btn:hover{border-color:var(--copper);color:var(--amber);}
 
-  #progress-strip{display:flex;justify-content:space-between;gap:2px;padding:10px 16px;border-bottom:0.5px solid var(--gray-3);background:rgba(17,24,39,0.4);flex-shrink:0;position:relative;z-index:2;}
-  .topic{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-width:0;}
-  .topic-ico{width:26px;height:26px;border-radius:50%;background:var(--gray-2);border:0.5px solid var(--gray-3);display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.45s cubic-bezier(.34,1.56,.64,1);color:var(--gray-5);}
-  .topic-ico.done{background:linear-gradient(135deg,var(--copper),var(--amber));border-color:var(--amber);transform:scale(1.15);box-shadow:0 0 10px rgba(217,119,6,0.35);}
-  .topic-ico.active{border-color:var(--amber);color:var(--amber);animation:activePulse 1.6s infinite;}
-  @keyframes activePulse{0%,100%{box-shadow:0 0 0 0 rgba(217,119,6,0.45);}50%{box-shadow:0 0 0 6px rgba(217,119,6,0);}}
-  .topic-label{font-size:8px;color:var(--gray-5);text-align:center;letter-spacing:0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;display:none;}
-  @media(min-width:640px){.topic-label{display:block;}}
-  .topic-ico.done + .topic-label, .topic-ico.active + .topic-label{color:var(--amber);}
+  main{max-width:840px;margin:0 auto;padding:32px 20px;}
 
-  main{flex:1;display:flex;flex-direction:column;max-width:760px;width:100%;margin:0 auto;overflow:hidden;position:relative;z-index:1;}
+  /* LOGIN */
+  #login-view{display:flex;align-items:center;justify-content:center;min-height:80vh;}
+  #login-box{background:var(--gray-1);border:0.5px solid var(--gray-3);border-radius:16px;padding:36px;width:100%;max-width:360px;}
+  #login-box h2{font-size:18px;margin-bottom:16px;text-align:center;}
+  #login-box input{width:100%;background:var(--gray-2);border:0.5px solid var(--gray-3);border-radius:10px;padding:11px 14px;color:var(--ice);font-family:'Inter',sans-serif;font-size:14px;margin-bottom:10px;outline:none;}
+  #login-box input:focus{border-color:var(--copper);}
+  #login-box button{width:100%;background:linear-gradient(135deg,var(--copper),var(--amber));color:#1a1206;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;margin-top:6px;}
+  #login-error{color:#f87171;font-size:12px;margin-top:10px;text-align:center;min-height:16px;}
 
-  #chat-view{display:flex;flex-direction:column;flex:1;overflow:hidden;}
-  #messages{flex:1;overflow-y:auto;padding:24px 20px 12px;display:flex;flex-direction:column;gap:14px;}
-  #messages::-webkit-scrollbar{width:6px;}
-  #messages::-webkit-scrollbar-thumb{background:var(--gray-3);border-radius:99px;}
+  /* LIST */
+  #app-view{display:none;}
+  .empty-state{text-align:center;color:var(--gray-5);padding:60px 20px;font-size:14px;}
+  .conv-card{background:var(--gray-1);border:0.5px solid var(--gray-3);border-radius:14px;padding:18px 20px;margin-bottom:14px;}
+  .conv-meta{background:var(--gray-2);border-radius:10px;padding:10px 14px;margin-bottom:12px;}
+  .conv-meta-row{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0;}
+  .conv-meta-label{color:var(--gray-5);}
+  .badge-done{background:rgba(76,175,125,0.15);border-color:rgba(76,175,125,0.4);color:var(--green);}
+  .badge-progress{background:rgba(217,119,6,0.12);border-color:rgba(217,119,6,0.4);color:var(--amber);}
+  .conv-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;flex-wrap:wrap;gap:6px;}
+  .conv-date{font-size:13px;color:var(--gray-5);}
+  .conv-id{font-size:11px;color:var(--gray-3);font-family:monospace;}
+  .conv-preview{font-size:13px;color:var(--gray-6);line-height:1.5;margin-bottom:12px;max-height:60px;overflow:hidden;}
+  .conv-actions{display:flex;gap:8px;flex-wrap:wrap;}
+  .btn{background:var(--gray-2);border:0.5px solid var(--gray-3);color:var(--ice);border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.15s;text-decoration:none;display:inline-flex;align-items:center;gap:6px;}
+  .btn:hover{border-color:var(--copper);color:var(--amber);}
+  .btn-primary{background:linear-gradient(135deg,var(--copper),var(--amber));color:#1a1206;border:none;}
+  .badge{font-size:11px;background:var(--gray-2);border:0.5px solid var(--gray-3);border-radius:99px;padding:3px 10px;color:var(--gray-5);}
+  #loading{text-align:center;color:var(--gray-5);padding:40px;font-size:13px;}
 
-  .msg-row{display:flex;gap:10px;align-items:flex-end;animation:fadein 0.3s ease;}
-  @keyframes fadein{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
-  .msg-row.user{justify-content:flex-end;}
-
-  .avatar{width:28px;height:28px;border-radius:50%;background:var(--gray-2);border:0.5px solid var(--gray-3);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:box-shadow 0.2s;}
-  .avatar svg{width:15px;height:15px;}
-  .avatar.thinking{animation:avatarPulse 1s infinite;}
-  @keyframes avatarPulse{0%,100%{box-shadow:0 0 0 0 rgba(184,115,51,0.45);}50%{box-shadow:0 0 0 6px rgba(184,115,51,0);}}
-
-  .msg{max-width:78%;padding:12px 16px;border-radius:14px;font-size:14px;line-height:1.55;}
-  .msg.bot{background:var(--gray-1);border:0.5px solid var(--gray-3);border-bottom-left-radius:3px;}
-  .msg.user{background:linear-gradient(135deg,var(--copper),var(--amber));color:#1a1206;font-weight:500;border-bottom-right-radius:3px;}
-  .msg.bot b{color:var(--amber);}
-  .msg p{margin-bottom:6px;}
-  .msg p:last-child{margin-bottom:0;}
-
-  .attach-chip{display:inline-flex;align-items:center;gap:6px;background:rgba(0,0,0,0.15);border:0.5px solid rgba(0,0,0,0.2);border-radius:8px;padding:5px 10px;font-size:12px;margin-top:6px;}
-  .msg.bot .attach-chip{background:var(--gray-2);border-color:var(--gray-3);}
-  .attach-chip img{width:20px;height:20px;border-radius:4px;object-fit:cover;}
-  .attach-remove{cursor:pointer;opacity:0.6;font-weight:700;margin-left:2px;}
-  .attach-remove:hover{opacity:1;}
-
-  .typing{display:flex;gap:4px;padding:14px 16px;background:var(--gray-1);border:0.5px solid var(--gray-3);border-radius:14px;border-bottom-left-radius:3px;}
-  .typing span{width:6px;height:6px;border-radius:50%;background:var(--gray-5);animation:bounce 1.2s infinite;}
-  .typing span:nth-child(2){animation-delay:0.15s;}
-  .typing span:nth-child(3){animation-delay:0.3s;}
-  @keyframes bounce{0%,60%,100%{transform:translateY(0);opacity:0.5;}30%{transform:translateY(-4px);opacity:1;}}
-
-  #input-bar{padding:10px 20px 18px;border-top:0.5px solid var(--gray-3);background:rgba(17,24,39,0.95);flex-shrink:0;padding-bottom:max(18px, env(safe-area-inset-bottom));}
-  #pending-attachments{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
-  .input-row{display:flex;gap:10px;align-items:flex-end;}
-  #user-input{flex:1;resize:none;background:var(--gray-2);border:0.5px solid var(--gray-3);border-radius:12px;padding:12px 14px;color:var(--ice);font-family:'Inter',sans-serif;font-size:14px;font-weight:300;outline:none;max-height:120px;line-height:1.4;}
-  #user-input:focus{border-color:var(--copper);box-shadow:0 0 0 3px rgba(184,115,51,0.1);}
-  #user-input::placeholder{color:var(--gray-5);}
-  .icon-btn{background:var(--gray-2);border:0.5px solid var(--gray-3);border-radius:12px;width:46px;height:46px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;font-size:18px;color:var(--gray-5);}
-  .icon-btn:hover{border-color:var(--copper);color:var(--amber);}
-  #send-btn{background:var(--copper);border:none;color:#1a1206;}
-  #send-btn:hover{background:var(--amber);}
-  #send-btn:disabled{opacity:0.35;cursor:not-allowed;}
-  #send-btn svg{width:18px;height:18px;}
-
-  #ended-banner{display:none;text-align:center;padding:14px 20px;color:var(--gray-5);font-size:12px;border-top:0.5px solid var(--gray-3);background:rgba(17,24,39,0.6);}
-  #ended-banner b{color:var(--green);}
-
-  /* REGISTRATION */
-  #registration-view{position:fixed;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--black);}
-  #reg-box{background:var(--gray-1);border:0.5px solid var(--gray-3);border-radius:18px;padding:32px 28px;width:100%;max-width:400px;position:relative;z-index:1;}
-  #reg-box h2{font-size:18px;margin-bottom:6px;}
-  #reg-box .reg-sub{font-size:12.5px;color:var(--gray-5);margin-bottom:20px;line-height:1.5;}
-  #reg-box label{display:block;font-size:11px;color:var(--gray-5);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:5px;margin-top:14px;}
-  #reg-box input{width:100%;background:var(--gray-2);border:0.5px solid var(--gray-3);border-radius:10px;padding:11px 14px;color:var(--ice);font-family:'Inter',sans-serif;font-size:14px;outline:none;}
-  #reg-box input:focus{border-color:var(--copper);box-shadow:0 0 0 3px rgba(184,115,51,0.1);}
-  #reg-box select{width:100%;background:var(--gray-2);border:0.5px solid var(--gray-3);border-radius:10px;padding:11px 14px;color:var(--ice);font-family:'Inter',sans-serif;font-size:14px;outline:none;appearance:none;cursor:pointer;}
-  #reg-box select:focus{border-color:var(--copper);box-shadow:0 0 0 3px rgba(184,115,51,0.1);}
-  #reg-box select option{background:var(--gray-2);color:var(--ice);}
-  #reg-submit{width:100%;background:linear-gradient(135deg,var(--copper),var(--amber));color:#1a1206;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;margin-top:22px;font-family:'Inter',sans-serif;}
-  #reg-submit:disabled{opacity:0.6;cursor:not-allowed;}
-  #reg-error{color:#f87171;font-size:12px;margin-top:10px;text-align:center;min-height:14px;}
-
-  /* RESUME OVERLAY */
-  #resume-overlay{display:none;position:fixed;inset:0;z-index:6;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;padding:20px;}
-  #resume-box{background:var(--gray-1);border:0.5px solid var(--gray-3);border-radius:18px;padding:28px;max-width:380px;text-align:center;}
-  #resume-box h3{font-size:16px;margin-bottom:10px;}
-  #resume-box p{font-size:13px;color:var(--gray-6);line-height:1.6;margin-bottom:20px;}
-  #resume-box .resume-actions{display:flex;flex-direction:column;gap:10px;}
-  .btn-resume-primary{background:linear-gradient(135deg,var(--copper),var(--amber));color:#1a1206;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;}
-  .btn-resume-secondary{background:transparent;border:0.5px solid var(--gray-3);color:var(--gray-5);border-radius:10px;padding:12px;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;}
-  .btn-resume-secondary:hover{color:var(--ice);border-color:var(--gray-4);}
+  /* FILTER */
+  #filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;}
+  .filter-btn{background:var(--gray-2);border:0.5px solid var(--gray-3);color:var(--gray-5);border-radius:99px;padding:7px 16px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.15s;}
+  .filter-btn:hover{border-color:var(--copper);color:var(--amber);}
+  .filter-btn.active{background:var(--copper-dim, rgba(184,115,51,0.15));border-color:var(--copper);color:var(--amber);}
+  .badge-industria{font-size:11px;background:rgba(184,115,51,0.12);border:0.5px solid rgba(184,115,51,0.3);border-radius:99px;padding:3px 10px;color:var(--amber);}
 </style>
 </head>
 <body>
 
-<div class="bg-blob b1"></div>
-<div class="bg-blob b2"></div>
-
-<!-- REGISTRO -->
-<div id="registration-view">
-  <div id="reg-box">
-    <h2>Antes de empezar</h2>
-    <div class="reg-sub">Cuéntanos quién eres — así, si necesitas pausar y volver más tarde, podemos retomar justo donde quedaste.</div>
-    <label for="reg-empresa">Empresa</label>
-    <input type="text" id="reg-empresa" placeholder="Nombre de la empresa" />
-    <label for="reg-nombres">Nombres</label>
-    <input type="text" id="reg-nombres" placeholder="Tus nombres" />
-    <label for="reg-apellidos">Apellidos</label>
-    <input type="text" id="reg-apellidos" placeholder="Tus apellidos" />
-    <label for="reg-dni">DNI</label>
-    <input type="text" id="reg-dni" placeholder="Tu número de DNI" inputmode="numeric" />
-    <label for="reg-rol">Rol en la empresa</label>
-    <input type="text" id="reg-rol" placeholder="Ej. Gerente General, Ventas, etc." />
-    <label for="reg-industria">Industria</label>
-    <select id="reg-industria">
-      <option value="">Selecciona una industria...</option>
-      <option value="Retail">Retail</option>
-      <option value="Alimentos y bebidas">Alimentos y bebidas</option>
-      <option value="Salud y bienestar">Salud y bienestar</option>
-      <option value="Educación">Educación</option>
-      <option value="Servicios">Servicios</option>
-      <option value="Tecnología">Tecnología</option>
-      <option value="Construcción e inmobiliaria">Construcción e inmobiliaria</option>
-      <option value="Otro">Otro</option>
-    </select>
-    <button id="reg-submit" onclick="startSession()">Empezar</button>
-    <div id="reg-error"></div>
-  </div>
-</div>
-
-<!-- RETOMAR CONVERSACIÓN -->
-<div id="resume-overlay">
-  <div id="resume-box">
-    <h3>👋 Te estábamos esperando</h3>
-    <p>Encontramos una conversación que empezaste anteriormente y que no terminaste. ¿Quieres continuar justo donde quedaste, o prefieres empezar de nuevo?</p>
-    <div class="resume-actions">
-      <button class="btn-resume-primary" id="resume-continue">Continuar donde quedé</button>
-      <button class="btn-resume-secondary" id="resume-restart">Empezar de nuevo</button>
-    </div>
-  </div>
-</div>
-
-<nav style="display:none">
+<nav>
   <div class="nav-logo">
     <svg viewBox="0 0 44 44" fill="none">
       <path d="M16 22C16 15.37 21.37 10 28 10C34.63 10 40 15.37 40 22C40 28.63 34.63 34 28 34" stroke="#1B2B4B" stroke-width="5" fill="none" stroke-linecap="round"/>
@@ -191,150 +82,44 @@
     </svg>
     <div class="nav-title">
       <b>ETRAZIA<span>app</span></b>
-      <span class="nav-sub">Asistente de levantamiento</span>
+      <span class="nav-sub">Panel interno — Levantamientos</span>
     </div>
   </div>
-  <div class="nav-right">
-    <div class="nav-badge" id="nav-badge"><span class="pulse"></span> <span id="nav-badge-text">Conversando</span></div>
-  </div>
+  <button id="logout-btn" onclick="doLogout()" style="display:none">Cerrar sesión</button>
 </nav>
 
-<div id="progress-strip" style="display:none"></div>
-
-<main style="display:none">
-  <div id="chat-view">
-    <div id="messages"></div>
-    <div id="input-bar">
-      <div id="pending-attachments"></div>
-      <div class="input-row">
-        <input type="file" id="file-input" accept="image/*,.pdf,.xlsx,.xls,.csv" multiple style="display:none" onchange="handleFiles(this.files)" />
-        <button class="icon-btn" id="attach-btn" onclick="document.getElementById('file-input').click()" title="Adjuntar archivo">📎</button>
-        <textarea id="user-input" placeholder="Escribe tu respuesta..." rows="1"></textarea>
-        <button class="icon-btn" id="send-btn" onclick="sendMessage()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#1a1206" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-        </button>
-      </div>
+<main>
+  <!-- LOGIN -->
+  <div id="login-view">
+    <div id="login-box">
+      <h2>Iniciar sesión</h2>
+      <input type="email" id="login-email" placeholder="Correo" autocomplete="username" />
+      <input type="password" id="login-password" placeholder="Contraseña" autocomplete="current-password" />
+      <button onclick="doLogin()">Entrar</button>
+      <div id="login-error"></div>
     </div>
-    <div id="ended-banner"><b>✓ Información recibida.</b> Gracias por tu tiempo — el equipo de Etrazia revisará todo y se pondrá en contacto pronto.</div>
+  </div>
+
+  <!-- APP -->
+  <div id="app-view">
+    <div id="filter-bar" style="display:none">
+      <button class="filter-btn active" data-filter="Todos" onclick="setFilter('Todos', this)">Todos</button>
+      <button class="filter-btn" data-filter="Retail" onclick="setFilter('Retail', this)">Retail</button>
+      <button class="filter-btn" data-filter="Alimentos y bebidas" onclick="setFilter('Alimentos y bebidas', this)">Alimentos y bebidas</button>
+      <button class="filter-btn" data-filter="Salud y bienestar" onclick="setFilter('Salud y bienestar', this)">Salud y bienestar</button>
+      <button class="filter-btn" data-filter="Educación" onclick="setFilter('Educación', this)">Educación</button>
+      <button class="filter-btn" data-filter="Servicios" onclick="setFilter('Servicios', this)">Servicios</button>
+      <button class="filter-btn" data-filter="Tecnología" onclick="setFilter('Tecnología', this)">Tecnología</button>
+      <button class="filter-btn" data-filter="Construcción e inmobiliaria" onclick="setFilter('Construcción e inmobiliaria', this)">Construcción e inmobiliaria</button>
+      <button class="filter-btn" data-filter="Otro" onclick="setFilter('Otro', this)">Otro</button>
+    </div>
+    <div id="loading">Cargando conversaciones...</div>
+    <div id="conv-list"></div>
   </div>
 </main>
 
-
-
 <script>
-const TOPICS = [
-  {key:'negocio',        icon:'🏢', label:'Negocio'},
-  {key:'canales',        icon:'🛒', label:'Canales'},
-  {key:'catalogo',       icon:'📦', label:'Catálogo'},
-  {key:'almacenes',      icon:'🏬', label:'Almacenes'},
-  {key:'shopify',        icon:'🛍️', label:'Shopify'},
-  {key:'logistica',      icon:'🚚', label:'Logística'},
-  {key:'clientes',       icon:'💛', label:'Clientes'},
-  {key:'equipo',         icon:'👥', label:'Equipo'},
-  {key:'marca',          icon:'🎨', label:'Marca'},
-  {key:'preocupaciones', icon:'💭', label:'Percepciones'},
-];
-
-const SYSTEM_PROMPT = `Eres el Asistente de Levantamiento de EtraziApp, el ecosistema de aplicaciones de Etrazia (Lima, Perú), cuyo lema es "Vende donde quieras, nosotros ponemos el cerebro."
-
-Tu trabajo es conversar con el equipo de un negocio prospecto para entender su operación y preparar un brief detallado que el equipo de Etrazia usará para diseñar su implementación personalizada.
-
-CONTEXTO DEL ECOSISTEMA ETRAZIAAPP (para que sepas qué es posible y guíes bien la conversación, sin inventar funciones que no existen):
-- Vcontrol: app de inventario, catálogo y CRM. Incluye catálogo de productos con variantes, gestión de stock, soporte para múltiples almacenes/ubicaciones, CRM con segmentación automática de clientes (Nuevo / Frecuente / VIP / Inactivo), módulo de ventas, promociones, reportes, pagos por QR, roles de usuario (Administrador / Vendedor), y exportación a Excel/PDF.
-- Vruta: app de optimización de rutas de despacho. Calcula la ruta más eficiente para los repartidores, asigna paradas y muestra mapas en tiempo real.
-- VLoyalty: app de fidelización de clientes con puntos y recompensas.
-- Integración con Shopify: sincroniza catálogo y stock, y permite exportar pedidos para programar despachos en Vruta.
-- Cada negocio recibe su propio subdominio personalizado: [negocio].etraziapp.com
-
-FLUJO: 10 SECCIONES EN ORDEN ESTRICTO
-Debes recorrer estas secciones EXACTAMENTE en este orden, una a la vez, sin saltar ni regresar (salvo que el propio usuario traiga espontáneamente información de otra sección — en ese caso regístrala con gusto, pero no abandones el orden de la conversación por eso). Cada sección tiene un objetivo que debes comunicar al cliente cuando empieza esa sección:
-
-1. negocio — Objetivo: "conocer quiénes son, a qué se dedica el negocio y cómo está organizado el equipo"
-   Temas: nombre del negocio, rubro, canales de contacto, equipo y roles generales.
-
-2. canales — Objetivo: "entender por dónde venden hoy y cómo gestionan los pedidos en cada canal"
-   Temas: Shopify, WhatsApp, Instagram, tienda física; cómo gestionan pedidos en cada uno. Para muchos negocios de este tipo, las redes sociales (Instagram/WhatsApp) tienen más volumen que la tienda web — no asumas que la web es el canal principal, pregúntalo con apertura ("¿por dónde entra la mayoría de tus pedidos hoy?").
-
-3. catalogo — Objetivo: "conocer su catálogo de productos: categorías, variantes y cómo lo tienen organizado"
-   Temas: categorías, cantidad aproximada de SKUs/diseños, variantes (talla/color/modelo), disponibilidad de fotos.
-   IMPORTANTE — detecta el modelo de negocio: si el negocio fabrica o personaliza productos a pedido (por ejemplo sublimación, grabado, estampado, etc. sobre una base "en crudo" como tazas, poleras o llaveros sin diseñar), pregúntalo explícitamente. Si es así, ten en cuenta que el "catálogo" puede ser un número muy grande o casi infinito de diseños/combinaciones posibles, pero todos se elaboran sobre un conjunto mucho más pequeño de productos base/insumos en crudo — eso es clave para la siguiente sección.
-
-4. almacenes — Objetivo: "entender cómo manejan su inventario y los lugares donde guardan mercadería"
-   Temas: puntos de stock (casa, tienda, depósito), cómo controlan inventario hoy, transferencias entre lugares, si necesitan ver stock por almacén o consolidado.
-   IMPORTANTE — si en la sección anterior detectaste que el negocio personaliza/fabrica a pedido sobre productos en crudo: el inventario relevante para ellos es el de esos insumos/productos en crudo (no el de cada diseño o combinación final, porque muchos diseños distintos consumen del mismo insumo base). Pregunta cuántas unidades de cada insumo base tienen disponibles y cómo controlan ese stock hoy. Si además tienen o van a tener tienda física, pregunta si planean (o ya tienen) productos YA personalizados en exhibición para venta inmediata, además del insumo en crudo para pedidos a medida — en ese caso hay dos niveles de inventario: insumos crudos (para producción a pedido, tanto digital como en tienda) y productos terminados en exhibición (para venta inmediata en tienda física). No expliques esta lógica al cliente ni la presentes como una solución — solo indaga para entenderla bien; cualquier observación al respecto va en el brief final.
-   TAMBIÉN INDAGA — cómo se actualiza este inventario día a día: ¿con qué herramienta lo registran (hoja de cálculo, cuaderno, Drive, etc.)? ¿alguien hace algún tipo de "cierre" o corte periódico? Y muy importante: ¿qué pasa con el inventario cuando un pedido cambia de fecha de entrega después de que ya se registró/descontó? ¿cómo se entera la persona encargada del inventario de ese cambio? Si mencionan ejemplos de descuadres (productos que el sistema/hoja marca como agotados pero que físicamente sí hay), profundiza con curiosidad para entender cómo ocurrió, sin sugerir causas ni soluciones.
-
-5. shopify — Objetivo: "revisar algunos detalles técnicos de su tienda Shopify"
-   Temas: plan actual, quién tiene acceso admin, apps/integraciones instaladas, si el dominio es propio.
-
-6. logistica — Objetivo: "entender cómo organizan la producción, el empaquetado y los despachos hoy"
-   Temas: zonas de entrega, repartidores/vehículos, cómo arman rutas (Excel, papel, memoria), frecuencia y hora de corte.
-   TAMBIÉN INDAGA — el flujo completo de un pedido desde que se confirma hasta que se despacha: ¿cómo se entera el equipo de producción de qué hay que hacer y para cuándo? ¿cómo registran el avance (por ejemplo, si algo ya está listo/empaquetado)? ¿usan alguna herramienta compartida (hoja, Drive, grupo de WhatsApp, pizarra) para esto, y cómo está organizada (por día, por pedido, por etapa)? Si mencionan que se organizan por día y que un pedido puede "pasar" de un día a otro cuando cambia de fecha, pregunta con curiosidad cómo se maneja esa transición y qué pasa con el avance que ya se había registrado. No expliques esta lógica ni sugieras cómo resolverla — solo entiéndela bien; las observaciones van en el brief final.
-
-7. clientes — Objetivo: "conocer su base de clientes y si tienen algún programa de fidelización"
-   Temas: base de datos de clientes, programa de fidelización actual, qué comportamientos quisieran premiar.
-
-8. equipo — Objetivo: "saber quién forma parte del equipo y qué hace cada persona"
-   Temas: quiénes son las personas del equipo y cuál es la responsabilidad principal de cada una — por ejemplo, quién ve el tema de ventas/canales, quién controla el inventario, quién está en producción/empaquetado/despacho. No preguntes por "niveles de acceso a un sistema"; el objetivo es entender roles y responsabilidades reales, no configurar permisos.
-
-9. marca — Objetivo: "definir cómo se vería su marca dentro de EtraziApp"
-   Temas: nombre sugerido para su subdominio, colores/paleta, disponibilidad de logo, tono de comunicación con sus clientes.
-
-10. preocupaciones — Objetivo: "entender qué les preocupa o qué dudas tienen sobre dar este paso, para que el sistema les dé la tranquilidad que necesitan"
-    Temas: miedo al cambio, curva de aprendizaje del equipo, dependencia de internet, seguridad/privacidad de sus datos, continuidad del negocio durante la transición, qué les gustaría que el aplicativo les resuelva con seguridad, qué dudas tienen. Esta sección es tan importante como las demás — indaga genuinamente, no la trates como un cierre de cortesía.
-    PRESTA ESPECIAL ATENCIÓN si la persona expresa preocupación por cambiar la forma en que su equipo trabaja y se coordina hoy (sus herramientas, su orden, su "modus operandi") — por ejemplo, temor a que un cambio complique la operación durante la transición o afecte al equipo. Si surge, captura ese sentimiento con mucho cuidado y respeto: no lo minimices, no ofrezcas una solución ni digas cómo se resolvería — solo entiende bien qué es exactamente lo que les preocupa y por qué.
-
-NO TRATES TEMAS DE INFRAESTRUCTURA TÉCNICA (dominio propio, hosting, correos corporativos, proveedores de DNS, etc.) — eso no forma parte de este levantamiento.
-
-CÓMO SE VE EL FLUJO EN LA PRÁCTICA (muy importante, sigue esta estructura siempre):
-- Al iniciar la conversación, preséntate brevemente (2-3 líneas), pregunta el nombre del negocio y con quién tienes el gusto de conversar, y MENCIONA el objetivo de la sección 1 (negocio) para contextualizar qué vas a indagar.
-- Dentro de cada sección, haz preguntas cortas y conversacionales, una o dos ideas a la vez, profundizando según las respuestas (ver "INDAGACIÓN EN PROFUNDIDAD" abajo).
-- ANTES de pasar a la siguiente sección, SIEMPRE cierra la sección actual con una pregunta abierta del tipo: "Antes de seguir, ¿hay algo más sobre [tema de la sección actual, en lenguaje natural] que sientas que no hemos tocado y que te parezca importante mencionar?" (adapta la redacción de forma natural, no la repitas literal cada vez).
-- Cuando el cliente responda a esa pregunta (aunque sea "no, nada más"), tu siguiente mensaje debe: (1) agradecer brevemente, (2) anunciar la transición de forma explícita, por ejemplo: "Perfecto, con esto damos por terminada la parte de [sección actual] y pasamos a [siguiente sección], cuyo objetivo es [objetivo de la siguiente sección]." y (3) inmediatamente hacer la primera pregunta de la nueva sección, todo en el mismo mensaje.
-- Repite este patrón (indagar → cerrar con pregunta abierta → anunciar transición con objetivo → siguiente sección) de forma constante hasta completar las 10 secciones.
-
-REGLA MÁS IMPORTANTE — CERO JUICIO:
-Tu única función es indagar y registrar información, NUNCA evaluar. Sin importar lo que te cuenten (procesos manuales en papel, Excel desordenados, falta de control de stock, etc.), jamás expreses que algo está "mal", "desordenado", "ineficiente" ni nada similar, ni sugieras cómo mejorarlo durante la conversación. No regales consejos, no dejes caer pistas de "con EtraziApp esto se resolvería". Reacciona siempre con curiosidad genuina y calidez ("Entiendo, gracias por contarme", "Qué bueno saberlo", "Ya veo cómo lo manejan"), nunca con un tono evaluativo o de diagnóstico. Todas las oportunidades de mejora se redactan SOLO al final, en el brief, nunca en el chat.
-
-INDAGACIÓN EN PROFUNDIDAD:
-Si el usuario responde con monosílabos o respuestas muy breves ("sí", "no", "tal vez", "a veces"), NO avances todavía (ni dentro de la sección ni hacia la pregunta de cierre). Haz una pregunta de seguimiento corta y específica para obtener un ejemplo concreto, un número aproximado o una situación real ("¿Me puedes contar un ejemplo de cómo pasó la última vez?", "¿Aproximadamente cuántas veces a la semana?", "¿Cómo lo resuelven cuando pasa eso?"). Prioriza profundidad sobre velocidad.
-
-PEDIR EVIDENCIA:
-Cuando sea natural (por ejemplo en catálogo, almacenes, o canales), puedes pedir amablemente que compartan una captura de pantalla o el archivo Excel/hoja que usan actualmente, usando el botón de adjuntar 📎 que tienen disponible. Si adjuntan algo, agradece y continúa la conversación con normalidad — nunca comentes ni evalúes el contenido del archivo o imagen.
-
-REGLAS GENERALES:
-- NUNCA menciones precios, costos, planes de pago, montos de inversión ni condiciones comerciales. Si preguntan por eso, indica amablemente que el equipo de Etrazia lo conversará directamente con ellos.
-- Mantén un tono cercano, claro, profesional y ágil, en español. Evita sonar como un formulario leído en voz alta, aunque la estructura por secciones sea fija — la fluidez está en cómo lo dices, no en saltarte el orden.
-- Si algo no aplica o no lo saben, anótalo como pendiente y continúa sin insistir.
-
-CIERRE DE LA CONVERSACIÓN:
-Después de cerrar la sección 10 (preocupaciones) con su pregunta abierta y la respuesta del cliente, en lugar de anunciar una "siguiente sección" (ya no hay), despídete de forma cálida y natural: agradece su tiempo, dile que el equipo de Etrazia revisará todo con calma y se pondrá en contacto pronto. NUNCA menciones la palabra "brief", ni que vas a "generar" algo, ni ofrezcas botones o pasos siguientes técnicos — solo una despedida humana y cálida.
-
-ETIQUETADO TÉCNICO (obligatorio, en cada respuesta excepto el brief final):
-Al final de cada respuesta normal, en una línea aparte, agrega un comentario HTML oculto indicando la sección ACTUAL en la que se encuentra tu mensaje (la sección sobre la que acabas de preguntar o en la que estás indagando, usando las 10 claves: negocio, canales, catalogo, almacenes, shopify, logistica, clientes, equipo, marca, preocupaciones) y el estado de la conversación. Formato exacto, sin espacios extra: <!--SECTION:clave|STATUS:ongoing--> o <!--SECTION:preocupaciones|STATUS:done--> únicamente en tu mensaje de despedida final. Esto es solo para uso técnico, el usuario nunca debe verlo ni se debe mencionar.
-
-GENERACIÓN DEL BRIEF:
-Cuando recibas un mensaje de usuario que sea exactamente "GENERAR_BRIEF_FINAL", deja de conversar normalmente y responde ÚNICAMENTE con el brief en formato Markdown (sin comentarios técnicos), usando encabezados de nivel 3 (###) para cada una de estas secciones, EN ESTE ORDEN Y CON ESTOS TÍTULOS EXACTOS:
-
-### Información general
-### Canales de venta
-### Catálogo de productos
-### Inventario y almacenes
-### Shopify
-### Logística y despachos
-### Clientes y fidelización
-### Equipo y accesos
-### Identidad de marca
-### Percepciones y preocupaciones del cliente
-### Oportunidades de mejora detectadas
-
-Para cada sección, resume en pocas frases o una lista con guiones lo que se conversó. Si una sección no se cubrió, escribe "Pendiente de definir en una siguiente conversación." En "Catálogo de productos" e "Inventario y almacenes", si detectaste que el negocio fabrica/personaliza a pedido sobre productos en crudo, descríbelo explícitamente: cuáles son los insumos/productos base, cuántas unidades de cada uno manejan, y cómo se relacionan con la cantidad de diseños/combinaciones posibles (un insumo → muchos diseños). Si aplica, menciona también si planean o tienen los dos niveles de inventario (insumo crudo + producto terminado en exhibición para tienda física), y cualquier información sobre cómo el cambio de fecha de un pedido afecta su inventario. En "Inventario y almacenes" y/o "Logística y despachos", si conversaron sobre la herramienta que usan para coordinar producción/empaquetado/despacho (hoja, Drive, etc.) y cómo se organiza por día, descríbelo con el mismo nivel de detalle que dieron. En "Percepciones y preocupaciones del cliente" sé especialmente cuidadoso en capturar el sentimiento real (miedos, expectativas, dudas) tal como se expresó — si mencionaron preocupación por cambiar su forma de trabajar/coordinarse actual, regístralo explícitamente y con cuidado. En "Oportunidades de mejora detectadas" incluye 3 a 5 puntos concretos, redactados en positivo (como oportunidades, nunca como críticas), sobre dónde EtraziApp puede aportar valor — aquí, y solo aquí, es donde puedes incluir observaciones de mejora, y puedes considerar también cómo abordar las preocupaciones detectadas. No incluyas precios ni montos en ninguna parte del brief. No agregues texto antes o después del brief (sin saludos, sin introducción, sin despedida).`;
-
-// ===================== CONFIGURACIÓN — completar antes de publicar =====================
-// 1. Pega aquí la URL del Worker de Cloudflare (Capítulo 4 de la guía técnica)
-const WORKER_URL = "https://etrazia-assistant-proxy.italoamaya-moreno.workers.dev";
-
-// 2. Pega aquí el firebaseConfig que copiaste al crear la app web en Firebase (Capítulo 3.2)
+// ===================== CONFIGURACIÓN — debe ser EXACTAMENTE el mismo firebaseConfig que consultor.html =====================
 const firebaseConfig = {
   apiKey: "AIzaSyBl7BjWPh8id3mKjoQPSK67y_Q8Oe_Wmns",
   authDomain: "etrazia-consultor.firebaseapp.com",
@@ -344,465 +129,313 @@ const firebaseConfig = {
   appId: "1:1041562210615:web:c7186ed83bb556c8aa0ab2"
 };
 firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
 const db = firebase.firestore();
-// ==========================================================================================
+// ===========================================================================================================================
 
-let messages = [];          // raw, with real base64 — used for API calls
-let messagesStorable = [];  // same shape but image/doc data replaced with "REF:n" — saved to Firestore
-let isLoading = false;
-let activeTopicKey = TOPICS[0].key;
-let doneTopics = new Set();
-let pendingAttachments = []; // {name, type, dataUrl, isImage, isPdf}
-let allAttachments = []; // full record, saved to Firestore (subcollection "adjuntos")
-let attachmentSaveIndex = 0; // how many of allAttachments are already saved
-let conversationLog = []; // {role, text, attachments:[names]} — clean version for storage/export
-let conversationEnded = false;
-let lastBriefMarkdown = '';
-let currentDocId = null;
-let userMeta = {};
-
-function renderProgressStrip() {
-  const strip = document.getElementById('progress-strip');
-  strip.innerHTML = TOPICS.map(t => {
-    let cls = '';
-    if (doneTopics.has(t.key)) cls = ' done';
-    else if (t.key === activeTopicKey) cls = ' active';
-    return `
-    <div class="topic">
-      <div class="topic-ico${cls}" id="topic-${t.key}">${t.icon}</div>
-      <div class="topic-label">${t.label}</div>
-    </div>`;
-  }).join('');
-}
-renderProgressStrip();
-
-function logoAvatar(thinking) {
-  return `<div class="avatar${thinking ? ' thinking' : ''}"><svg viewBox="0 0 44 44" fill="none">
-      <path d="M16 22C16 15.37 21.37 10 28 10C34.63 10 40 15.37 40 22C40 28.63 34.63 34 28 34" stroke="#374151" stroke-width="5" fill="none" stroke-linecap="round"/>
-      <path d="M28 22C28 28.63 22.63 34 16 34C9.37 34 4 28.63 4 22C4 15.37 9.37 10 16 10" stroke="#D97706" stroke-width="5" fill="none" stroke-linecap="round"/>
-      <rect x="17.5" y="17.5" width="9" height="9" rx="1.5" fill="#D97706" transform="rotate(45 22 22)"/>
-    </svg></div>`;
-}
-
-function fileIcon(att) {
-  if (att.isImage) return `<img src="${att.dataUrl}" />`;
-  if (att.isPdf) return '📄';
-  if (/\.(xlsx|xls|csv)$/i.test(att.name)) return '📊';
-  return '📎';
-}
-
-function addMessageToUI(role, text, attachments) {
-  const container = document.getElementById('messages');
-  const row = document.createElement('div');
-  row.className = 'msg-row ' + (role === 'user' ? 'user' : 'bot');
-  let attachHtml = '';
-  if (attachments && attachments.length) {
-    attachHtml = attachments.map(a => `<div class="attach-chip">${fileIcon(a)} <span>${a.name}</span></div>`).join('');
-    attachHtml = '<div>' + attachHtml + '</div>';
+auth.onAuthStateChanged(user => {
+  if (user) {
+    document.getElementById('login-view').style.display = 'none';
+    document.getElementById('app-view').style.display = 'block';
+    document.getElementById('logout-btn').style.display = 'inline-block';
+    loadConversations();
+  } else {
+    document.getElementById('login-view').style.display = 'flex';
+    document.getElementById('app-view').style.display = 'none';
+    document.getElementById('logout-btn').style.display = 'none';
   }
-  const bubble = `<div class="msg ${role === 'user' ? 'user' : 'bot'}">${textToHtml(text)}${attachHtml}</div>`;
-  row.innerHTML = role === 'user' ? bubble : logoAvatar(false) + bubble;
-  container.appendChild(row);
-  container.scrollTop = container.scrollHeight;
+});
 
-  conversationLog.push({
-    role,
-    text,
-    attachments: (attachments || []).map(a => a.name)
+function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errorBox = document.getElementById('login-error');
+  errorBox.textContent = '';
+  auth.signInWithEmailAndPassword(email, password)
+    .catch(err => { errorBox.textContent = 'Correo o contraseña incorrectos.'; console.error(err); });
+}
+
+function doLogout() {
+  auth.signOut();
+}
+
+document.getElementById('login-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+// ---- Helpers ----
+function formatDate(ts) {
+  if (!ts) return 'Fecha desconocida';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleString('es-PE', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function extractPreview(brief) {
+  if (!brief) return 'Brief aún no disponible.';
+  const match = brief.match(/### Información general\s*\n([\s\S]*?)(\n###|$)/);
+  const text = match ? match[1] : brief;
+  return text.replace(/[-*]\s*/g, '').replace(/\n+/g, ' ').trim().slice(0, 220);
+}
+
+function downloadText(filename, content) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function downloadBriefAsPDF(brief, meta, dateLabel) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+  const COPPER = [184, 115, 51];
+  const DARK   = [17, 24, 39];
+  const GRAY   = [100, 116, 139];
+  const BLACK  = [0, 0, 0];
+  const pageW  = 210;
+  const margin = 18;
+  const contentW = pageW - margin * 2;
+  let y = 20;
+
+  function checkPage(needed = 10) {
+    if (y + needed > 275) { doc.addPage(); y = 20; }
+  }
+
+  // Header band
+  doc.setFillColor(...COPPER);
+  doc.rect(0, 0, pageW, 12, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(255, 255, 255);
+  doc.text('ETRAZIAapp — Brief de Levantamiento', margin, 8);
+  doc.text(dateLabel, pageW - margin, 8, { align: 'right' });
+
+  y = 22;
+
+  // Title
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(...DARK);
+  doc.text('Brief de Levantamiento', margin, y);
+  y += 8;
+
+  // Meta box
+  doc.setFillColor(243, 244, 246);
+  doc.roundedRect(margin, y, contentW, 28, 2, 2, 'F');
+  const metaItems = [
+    ['Empresa', meta.empresa || '-'],
+    ['Nombres completos', `${meta.nombres || ''} ${meta.apellidos || ''}`.trim() || '-'],
+    ['DNI', meta.dni || '-'],
+    ['Rol', meta.rol || '-'],
+    ['Industria', meta.industria || '-'],
+  ];
+  doc.setFontSize(8.5);
+  let mx = margin + 4;
+  let my = y + 6;
+  metaItems.forEach(([label, value], i) => {
+    if (i === 3) { mx = margin + contentW / 2 + 4; my = y + 6; }
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...GRAY);
+    doc.text(label + ':', mx, my);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...DARK);
+    doc.text(value, mx + 28, my);
+    if (i !== 2) my += 6;
   });
-}
+  y += 32;
 
-// Re-render a message during a resumed session WITHOUT pushing to conversationLog (already loaded)
-function addMessageToUIRestore(role, text, attachmentNames) {
-  const atts = (attachmentNames || []).map(name => allAttachments.find(a => a.name === name)).filter(Boolean);
-  const container = document.getElementById('messages');
-  const row = document.createElement('div');
-  row.className = 'msg-row ' + (role === 'user' ? 'user' : 'bot');
-  let attachHtml = '';
-  if (atts.length) {
-    attachHtml = '<div>' + atts.map(a => `<div class="attach-chip">${fileIcon(a)} <span>${a.name}</span></div>`).join('') + '</div>';
-  }
-  const bubble = `<div class="msg ${role === 'user' ? 'user' : 'bot'}">${textToHtml(text)}${attachHtml}</div>`;
-  row.innerHTML = role === 'user' ? bubble : logoAvatar(false) + bubble;
-  container.appendChild(row);
-}
+  // Parse and render markdown sections
+  const lines = brief.split('\n');
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) { y += 2; continue; }
 
-function textToHtml(text) {
-  let escaped = text
-    .split('\n\n').map(p => p.trim()).filter(p => p.length)
-    .map(p => '<p>' + p.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g,'<br>') + '</p>')
-    .join('');
-  return escaped || text;
-}
-
-function setThinking(on) {
-  const badge = document.getElementById('nav-badge');
-  const badgeText = document.getElementById('nav-badge-text');
-  if (on) { badge.classList.add('thinking'); badgeText.textContent = 'Pensando...'; }
-  else { badge.classList.remove('thinking'); badgeText.textContent = 'Conversando'; }
-}
-
-function showTyping() {
-  setThinking(true);
-  const container = document.getElementById('messages');
-  const row = document.createElement('div');
-  row.className = 'msg-row bot';
-  row.id = 'typing-row';
-  row.innerHTML = logoAvatar(true) + '<div class="typing"><span></span><span></span><span></span></div>';
-  container.appendChild(row);
-  container.scrollTop = container.scrollHeight;
-}
-
-function hideTyping() {
-  setThinking(false);
-  const el = document.getElementById('typing-row');
-  if (el) el.remove();
-}
-
-function parseMeta(reply) {
-  const match = reply.match(/<!--SECTION:([a-z]+)\|STATUS:(ongoing|done)-->/);
-  let cleaned = reply.replace(/\s*<!--SECTION:[^>]*-->\s*$/, '').trim();
-  let status = 'ongoing';
-  if (match) {
-    const key = match[1];
-    status = match[2];
-    const idx = TOPICS.findIndex(t => t.key === key);
-    if (idx >= 0) {
-      let changed = false;
-      TOPICS.forEach((t, i) => {
-        if (i < idx && !doneTopics.has(t.key)) { doneTopics.add(t.key); changed = true; }
+    if (line.startsWith('### ')) {
+      checkPage(14);
+      y += 4;
+      doc.setFillColor(...COPPER);
+      doc.rect(margin, y - 4, contentW, 7, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(255, 255, 255);
+      doc.text(line.replace('### ', '').toUpperCase(), margin + 3, y + 0.5);
+      y += 6;
+    } else if (line.startsWith('- ') || line.startsWith('* ')) {
+      checkPage(7);
+      const text = line.replace(/^[-*]\s*/, '').replace(/\*\*(.+?)\*\*/g, '$1');
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(...BLACK);
+      doc.setFillColor(...COPPER);
+      doc.circle(margin + 2, y - 1.2, 1, 'F');
+      const wrapped = doc.splitTextToSize(text, contentW - 8);
+      wrapped.forEach((wl, wi) => {
+        checkPage(5);
+        doc.text(wl, margin + 6, y);
+        if (wi < wrapped.length - 1) y += 5;
       });
-      if (status === 'done' && !doneTopics.has(key)) { doneTopics.add(key); changed = true; }
-      if (activeTopicKey !== key) { activeTopicKey = status === 'done' ? null : key; changed = true; }
-      if (changed) renderProgressStrip();
+      y += 5.5;
+    } else {
+      checkPage(7);
+      const text = line.replace(/\*\*(.+?)\*\*/g, '$1');
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(...BLACK);
+      const wrapped = doc.splitTextToSize(text, contentW);
+      wrapped.forEach((wl, wi) => {
+        checkPage(5);
+        doc.text(wl, margin, y);
+        if (wi < wrapped.length - 1) y += 5;
+      });
+      y += 5.5;
     }
   }
-  return { cleaned, status };
+
+  // Footer on each page
+  const totalPages = doc.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFillColor(243, 244, 246);
+    doc.rect(0, 287, pageW, 10, 'F');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...GRAY);
+    doc.text('Documento de uso interno — Etrazia', margin, 293);
+    doc.text(`Página ${p} de ${totalPages}`, pageW - margin, 293, { align: 'right' });
+  }
+
+  const empresa = (meta.empresa || 'brief').replace(/\s+/g, '_').toLowerCase();
+  doc.save(`brief_${empresa}.pdf`);
 }
 
-// ---- File attachments ----
-function handleFiles(fileList) {
-  Array.from(fileList).forEach(file => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const isImage = file.type.startsWith('image/');
-      const isPdf = file.type === 'application/pdf';
-      const att = { name: file.name, type: file.type, dataUrl: reader.result, isImage, isPdf };
-      pendingAttachments.push(att);
-      renderPendingAttachments();
-    };
-    reader.readAsDataURL(file);
-  });
-  document.getElementById('file-input').value = '';
-}
-
-function renderPendingAttachments() {
-  const box = document.getElementById('pending-attachments');
-  box.innerHTML = pendingAttachments.map((a, i) => `
-    <div class="attach-chip">${fileIcon(a)} <span>${a.name}</span> <span class="attach-remove" onclick="removePending(${i})">×</span></div>
-  `).join('');
-}
-
-function removePending(i) {
-  pendingAttachments.splice(i, 1);
-  renderPendingAttachments();
-}
-
-// ---- Core conversation ----
-function resolveContent(content) {
-  if (typeof content === 'string') return content;
-  return content.map(block => {
-    if (block.source && typeof block.source.data === 'string' && block.source.data.startsWith('REF:')) {
-      const idx = parseInt(block.source.data.slice(4), 10);
-      const att = allAttachments[idx];
-      const base64 = att ? att.dataUrl.split(',')[1] : '';
-      return { ...block, source: { ...block.source, data: base64 } };
+function conversationToText(conversationLog, meta, createdAtLabel) {
+  let out = `Conversación — ${createdAtLabel}\n`;
+  out += `Empresa: ${meta.empresa || '-'}\n`;
+  out += `Nombres completos: ${meta.nombres || ''} ${meta.apellidos || ''}\n`;
+  out += `DNI: ${meta.dni || '-'}\n`;
+  out += `Rol en la empresa: ${meta.rol || '-'}\n`;
+  out += `${'='.repeat(40)}\n\n`;
+  (conversationLog || []).forEach(m => {
+    const who = m.role === 'user' ? 'CLIENTE' : 'ASISTENTE';
+    out += `[${who}]\n${m.text}\n`;
+    if (m.attachments && m.attachments.length) {
+      out += `(Adjuntos: ${m.attachments.join(', ')})\n`;
     }
-    return block;
+    out += '\n';
   });
+  return out;
 }
 
-async function callClaude(userContent, mode, displayText, displayAttachments, storableUserContent) {
-  if (isLoading) return;
-  isLoading = true;
-  document.getElementById('send-btn').disabled = true;
-
-  if (mode === 'user') {
-    addMessageToUI('user', displayText, displayAttachments);
-  }
-  messages.push({ role: 'user', content: userContent });
-  if (mode !== 'brief') {
-    messagesStorable.push({ role: 'user', content: storableUserContent !== undefined ? storableUserContent : userContent });
-  }
-  showTyping();
-
+// ---- Load & render conversations ----
+async function loadConversations() {
+  const listEl = document.getElementById('conv-list');
+  const loadingEl = document.getElementById('loading');
   try {
-    const response = await fetch(WORKER_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1000,
-        system: SYSTEM_PROMPT,
-        messages: messages
-      })
+    const snap = await db.collection('conversaciones').orderBy('createdAt', 'desc').get();
+    loadingEl.style.display = 'none';
+
+    if (snap.empty) {
+      listEl.innerHTML = '<div class="empty-state">Todavía no hay conversaciones guardadas.</div>';
+      return;
+    }
+
+    document.getElementById('filter-bar').style.display = 'flex';
+
+    snap.forEach(doc => {
+      const data = doc.data();
+      const dateLabel = formatDate(data.createdAt);
+      const updatedLabel = formatDate(data.updatedAt);
+      const isDone = data.status === 'done';
+      const statusBadge = isDone
+        ? `<span class="badge badge-done">✓ Completado</span>`
+        : `<span class="badge badge-progress">● En progreso</span>`;
+      const fullName = `${data.nombres || ''} ${data.apellidos || ''}`.trim() || '(sin nombre)';
+
+      const card = document.createElement('div');
+      card.className = 'conv-card';
+      card.dataset.industria = data.industria || '';
+      card.innerHTML = `
+        <div class="conv-meta">
+          <div class="conv-meta-row"><span class="conv-meta-label">Empresa</span><span>${data.empresa || '-'}</span></div>
+          <div class="conv-meta-row"><span class="conv-meta-label">Nombres completos</span><span>${fullName}</span></div>
+          <div class="conv-meta-row"><span class="conv-meta-label">DNI</span><span>${data.dni || '-'}</span></div>
+          <div class="conv-meta-row"><span class="conv-meta-label">Rol en la empresa</span><span>${data.rol || '-'}</span></div>
+          <div class="conv-meta-row"><span class="conv-meta-label">Industria</span><span class="badge-industria">${data.industria || '-'}</span></div>
+        </div>
+        <div class="conv-header">
+          <div class="conv-date">Iniciado: ${dateLabel} &nbsp;·&nbsp; Última actividad: ${updatedLabel}</div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            ${statusBadge}
+            <span class="badge">${(data.attachmentCount || 0)} adjunto(s)</span>
+          </div>
+        </div>
+        <div class="conv-preview">${isDone ? extractPreview(data.brief) : 'Conversación aún en curso — brief no disponible todavía.'}</div>
+        <div class="conv-actions">
+          <button class="btn btn-primary" data-action="brief" ${isDone ? '' : 'disabled'}>📋 Descargar brief (PDF)</button>
+          <button class="btn" data-action="conv">💬 Descargar conversación (.txt)</button>
+          <button class="btn" data-action="attachments">📎 Ver adjuntos</button>
+        </div>
+        <div class="conv-attachments" style="display:none;margin-top:10px;"></div>
+      `;
+
+      const briefBtn = card.querySelector('[data-action="brief"]');
+      if (isDone) {
+        briefBtn.addEventListener('click', () => {
+          downloadBriefAsPDF(data.brief || '', data, dateLabel);
+        });
+      }
+      card.querySelector('[data-action="conv"]').addEventListener('click', () => {
+        downloadText(`conversacion_${doc.id}.txt`, conversationToText(data.conversationLog, data, dateLabel));
+      });
+      card.querySelector('[data-action="attachments"]').addEventListener('click', async (e) => {
+        const box = card.querySelector('.conv-attachments');
+        if (box.style.display === 'block') { box.style.display = 'none'; return; }
+        box.style.display = 'block';
+        if (box.dataset.loaded) return;
+        box.innerHTML = 'Cargando adjuntos...';
+        const attSnap = await doc.ref.collection('adjuntos').orderBy('order').get();
+        if (attSnap.empty) {
+          box.innerHTML = '<span style="color:var(--gray-5);font-size:12px;">Sin adjuntos.</span>';
+        } else {
+          box.innerHTML = '';
+          attSnap.forEach(a => {
+            const att = a.data();
+            const link = document.createElement('a');
+            link.className = 'btn';
+            link.href = att.dataUrl;
+            link.download = att.name;
+            link.textContent = `⬇ ${att.name}`;
+            link.style.marginRight = '8px';
+            link.style.marginBottom = '6px';
+            box.appendChild(link);
+          });
+        }
+        box.dataset.loaded = '1';
+      });
+
+      listEl.appendChild(card);
     });
-    const data = await response.json();
-    hideTyping();
-
-    const textBlocks = (data.content || []).filter(b => b.type === 'text').map(b => b.text);
-    let reply = textBlocks.join('\n') || "Disculpa, no pude procesar eso. <!--SECTION:negocio|STATUS:ongoing-->";
-
-    messages.push({ role: 'assistant', content: reply });
-    if (mode !== 'brief') {
-      messagesStorable.push({ role: 'assistant', content: reply });
-    }
-
-    if (mode === 'brief') {
-      lastBriefMarkdown = reply;
-      await finalizeConversation();
-    } else {
-      const { cleaned, status } = parseMeta(reply);
-      addMessageToUI('bot', cleaned);
-      await saveProgress();
-      if (status === 'done') {
-        endConversation();
-      }
-    }
   } catch (err) {
-    hideTyping();
-    addMessageToUI('bot', "Hubo un problema de conexión. Intenta enviar tu mensaje nuevamente.");
+    loadingEl.textContent = 'Error al cargar las conversaciones. Revisa la consola para más detalles.';
     console.error(err);
-  } finally {
-    isLoading = false;
-    document.getElementById('send-btn').disabled = false;
   }
 }
 
-function sendMessage() {
-  const input = document.getElementById('user-input');
-  const text = input.value.trim();
-  if ((!text && pendingAttachments.length === 0) || isLoading) return;
-
-  const atts = pendingAttachments.slice();
-  const attIndexStart = allAttachments.length;
-  allAttachments.push(...atts);
-
-  const contentBlocks = [];
-  const storableBlocks = [];
-  if (text) { contentBlocks.push({ type: 'text', text }); storableBlocks.push({ type: 'text', text }); }
-
-  let extraNote = '';
-  atts.forEach((a, i) => {
-    const globalIdx = attIndexStart + i;
-    if (a.isImage) {
-      const base64 = a.dataUrl.split(',')[1];
-      contentBlocks.push({ type: 'image', source: { type: 'base64', media_type: a.type, data: base64 } });
-      storableBlocks.push({ type: 'image', source: { type: 'base64', media_type: a.type, data: 'REF:' + globalIdx } });
-    } else if (a.isPdf) {
-      const base64 = a.dataUrl.split(',')[1];
-      contentBlocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } });
-      storableBlocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: 'REF:' + globalIdx } });
-    } else {
-      extraNote += `\n[Archivo adjunto: ${a.name} — disponible para el equipo de Etrazia, no analizable aquí]`;
-    }
-  });
-  if (extraNote) {
-    if (contentBlocks.length && contentBlocks[0].type === 'text') { contentBlocks[0].text += extraNote; storableBlocks[0].text += extraNote; }
-    else { contentBlocks.unshift({ type: 'text', text: extraNote.trim() }); storableBlocks.unshift({ type: 'text', text: extraNote.trim() }); }
-  }
-  const content = contentBlocks.length === 1 && contentBlocks[0].type === 'text' ? contentBlocks[0].text : contentBlocks;
-  const storableContent = storableBlocks.length === 1 && storableBlocks[0].type === 'text' ? storableBlocks[0].text : storableBlocks;
-
-  input.value = '';
-  input.style.height = 'auto';
-  pendingAttachments = [];
-  renderPendingAttachments();
-
-  callClaude(content, 'user', text || '(adjunto enviado)', atts, storableContent);
-}
-
-document.getElementById('user-input').addEventListener('keydown', function(e){
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-  }
-});
-document.getElementById('user-input').addEventListener('input', function(){
-  this.style.height = 'auto';
-  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-});
-
-function endConversation() {
-  conversationEnded = true;
-  document.getElementById('input-bar').style.display = 'none';
-  document.getElementById('ended-banner').style.display = 'block';
-  callClaude("GENERAR_BRIEF_FINAL", 'brief');
-}
-
-// ---- Registro, retomar y guardado en Firestore ----
-function sanitizeId(s) {
-  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-}
-
-function hideRegistration() {
-  document.getElementById('registration-view').style.display = 'none';
-  document.querySelector('nav').style.display = 'flex';
-  document.getElementById('progress-strip').style.display = 'flex';
-  document.querySelector('main').style.display = 'flex';
-}
-
-async function initNewDoc(docId) {
-  await db.collection('conversaciones').doc(docId).set({
-    ...userMeta,
-    status: 'in_progress',
-    messages: [],
-    conversationLog: [],
-    doneTopics: [],
-    activeTopicKey: TOPICS[0].key,
-    attachmentCount: 0,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+let activeFilter = 'Todos';
+function setFilter(value, btn) {
+  activeFilter = value;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.conv-card').forEach(card => {
+    const industria = card.dataset.industria || '';
+    card.style.display = (value === 'Todos' || industria === value) ? 'block' : 'none';
   });
 }
-
-function beginChat() {
-  hideRegistration();
-  callClaude("Hola, ya estamos listos para empezar la conversación. Por favor preséntate y comienza.", 'init');
-}
-
-function showResumeChoice(docId, data) {
-  document.getElementById('resume-overlay').style.display = 'flex';
-  document.getElementById('resume-continue').onclick = () => {
-    document.getElementById('resume-overlay').style.display = 'none';
-    resumeSession(docId, data);
-  };
-  document.getElementById('resume-restart').onclick = async () => {
-    document.getElementById('resume-overlay').style.display = 'none';
-    currentDocId = docId;
-    await initNewDoc(currentDocId);
-    beginChat();
-  };
-}
-
-async function resumeSession(docId, data) {
-  currentDocId = docId;
-  userMeta = { empresa: data.empresa, nombres: data.nombres, apellidos: data.apellidos, dni: data.dni, rol: data.rol, industria: data.industria || '' };
-  doneTopics = new Set(data.doneTopics || []);
-  activeTopicKey = data.activeTopicKey || TOPICS[0].key;
-
-  try {
-    const attSnap = await db.collection('conversaciones').doc(docId).collection('adjuntos').orderBy('order').get();
-    allAttachments = attSnap.docs.map(d => d.data());
-  } catch (e) {
-    console.error('Error cargando adjuntos:', e);
-    allAttachments = [];
-  }
-  attachmentSaveIndex = allAttachments.length;
-
-  messagesStorable = data.messages || [];
-  messages = messagesStorable.map(m => ({ role: m.role, content: resolveContent(m.content) }));
-  conversationLog = (data.conversationLog || []).slice();
-
-  hideRegistration();
-  renderProgressStrip();
-  conversationLog.forEach(entry => addMessageToUIRestore(entry.role, entry.text, entry.attachments));
-  const container = document.getElementById('messages');
-  container.scrollTop = container.scrollHeight;
-}
-
-async function startSession() {
-  const empresa = document.getElementById('reg-empresa').value.trim();
-  const nombres = document.getElementById('reg-nombres').value.trim();
-  const apellidos = document.getElementById('reg-apellidos').value.trim();
-  const dni = document.getElementById('reg-dni').value.trim();
-  const rol = document.getElementById('reg-rol').value.trim();
-  const industria = document.getElementById('reg-industria').value;
-  const errEl = document.getElementById('reg-error');
-  errEl.textContent = '';
-
-  if (!empresa || !nombres || !apellidos || !dni || !rol || !industria) {
-    errEl.textContent = 'Por favor completa todos los campos.';
-    return;
-  }
-
-  const docId = sanitizeId(dni);
-  if (!docId) {
-    errEl.textContent = 'El DNI ingresado no es válido.';
-    return;
-  }
-  userMeta = { empresa, nombres, apellidos, dni, rol, industria };
-
-  const btn = document.getElementById('reg-submit');
-  btn.disabled = true;
-  btn.textContent = 'Verificando...';
-
-  try {
-    const snap = await db.collection('conversaciones').doc(docId).get();
-    if (snap.exists) {
-      const data = snap.data();
-      if (data.status === 'in_progress' && data.conversationLog && data.conversationLog.length > 0) {
-        showResumeChoice(docId, data);
-        return;
-      } else if (data.status === 'done') {
-        currentDocId = docId + '_' + Date.now();
-        await initNewDoc(currentDocId);
-        beginChat();
-        return;
-      }
-    }
-    currentDocId = docId;
-    await initNewDoc(currentDocId);
-    beginChat();
-  } catch (err) {
-    console.error(err);
-    errEl.textContent = 'Hubo un problema de conexión. Intenta de nuevo.';
-    btn.disabled = false;
-    btn.textContent = 'Empezar';
-  }
-}
-
-async function saveProgress() {
-  try {
-    await db.collection('conversaciones').doc(currentDocId).set({
-      ...userMeta,
-      status: 'in_progress',
-      messages: messagesStorable,
-      conversationLog,
-      doneTopics: Array.from(doneTopics),
-      activeTopicKey: activeTopicKey || null,
-      attachmentCount: allAttachments.length,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-
-    for (let i = attachmentSaveIndex; i < allAttachments.length; i++) {
-      const att = allAttachments[i];
-      await db.collection('conversaciones').doc(currentDocId).collection('adjuntos').doc(String(i)).set({
-        name: att.name, type: att.type, dataUrl: att.dataUrl, order: i
-      });
-    }
-    attachmentSaveIndex = allAttachments.length;
-  } catch (err) {
-    console.error('Error guardando progreso:', err);
-  }
-}
-
-async function finalizeConversation() {
-  try {
-    await db.collection('conversaciones').doc(currentDocId).set({
-      status: 'done',
-      brief: lastBriefMarkdown,
-      endedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-  } catch (err) {
-    console.error('Error guardando el brief final:', err);
-  }
-}
-
-document.getElementById('reg-dni').addEventListener('keydown', e => {
-  if (e.key === 'Enter') startSession();
-});
 </script>
 </body>
 </html>
