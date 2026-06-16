@@ -314,21 +314,42 @@ ETIQUETADO TÉCNICO (obligatorio, en cada respuesta excepto el brief final):
 Al final de cada respuesta normal, en una línea aparte, agrega un comentario HTML oculto indicando la sección ACTUAL en la que se encuentra tu mensaje (la sección sobre la que acabas de preguntar o en la que estás indagando, usando las 10 claves: negocio, canales, catalogo, almacenes, shopify, logistica, clientes, equipo, marca, preocupaciones) y el estado de la conversación. Formato exacto, sin espacios extra: <!--SECTION:clave|STATUS:ongoing--> o <!--SECTION:preocupaciones|STATUS:done--> únicamente en tu mensaje de despedida final. Esto es solo para uso técnico, el usuario nunca debe verlo ni se debe mencionar.
 
 GENERACIÓN DEL BRIEF:
-Cuando recibas un mensaje de usuario que sea exactamente "GENERAR_BRIEF_FINAL", deja de conversar normalmente y responde ÚNICAMENTE con el brief en formato Markdown (sin comentarios técnicos), usando encabezados de nivel 3 (###) para cada una de estas secciones, EN ESTE ORDEN Y CON ESTOS TÍTULOS EXACTOS:
+Cuando recibas un mensaje de usuario que sea exactamente "GENERAR_BRIEF_FINAL", deja de conversar normalmente y responde ÚNICAMENTE con el brief en formato Markdown. Sin emojis, sin iconos, sin caracteres especiales. Estructura exacta obligatoria:
 
-### Información general
-### Canales de venta
-### Catálogo de productos
-### Inventario y almacenes
-### Shopify
-### Logística y despachos
-### Clientes y fidelización
-### Equipo y accesos
-### Identidad de marca
-### Percepciones y preocupaciones del cliente
-### Oportunidades de mejora detectadas
+## RESUMEN EJECUTIVO
+Parrafo de 5 a 8 lineas que sintetice quien es el negocio, su modelo de operacion, su situacion actual, sus principales oportunidades de mejora y el potencial de impacto de EtraziApp. Tono profesional y directo, como introduccion de una propuesta ejecutiva.
 
-Para cada sección, resume en pocas frases o una lista con guiones lo que se conversó. Si una sección no se cubrió, escribe "Pendiente de definir en una siguiente conversación." En "Catálogo de productos" e "Inventario y almacenes", si detectaste que el negocio fabrica/personaliza a pedido sobre productos en crudo, descríbelo explícitamente: cuáles son los insumos/productos base, cuántas unidades de cada uno manejan, y cómo se relacionan con la cantidad de diseños/combinaciones posibles (un insumo → muchos diseños). Si aplica, menciona también si planean o tienen los dos niveles de inventario (insumo crudo + producto terminado en exhibición para tienda física), y cualquier información sobre cómo el cambio de fecha de un pedido afecta su inventario. En "Inventario y almacenes" y/o "Logística y despachos", si conversaron sobre la herramienta que usan para coordinar producción/empaquetado/despacho (hoja, Drive, etc.) y cómo se organiza por día, descríbelo con el mismo nivel de detalle que dieron. En "Percepciones y preocupaciones del cliente" sé especialmente cuidadoso en capturar el sentimiento real (miedos, expectativas, dudas) tal como se expresó — si mencionaron preocupación por cambiar su forma de trabajar/coordinarse actual, regístralo explícitamente y con cuidado. En "Oportunidades de mejora detectadas" incluye 3 a 5 puntos concretos, redactados en positivo (como oportunidades, nunca como críticas), sobre dónde EtraziApp puede aportar valor — aquí, y solo aquí, es donde puedes incluir observaciones de mejora, y puedes considerar también cómo abordar las preocupaciones detectadas. No incluyas precios ni montos en ninguna parte del brief. No agregues texto antes o después del brief (sin saludos, sin introducción, sin despedida).`;
+## ANALISIS GENERAL
+Analisis interpretativo de 3 a 5 parrafos. Cubre: madurez operativa, principales cuellos de botella estructurales, riesgos si no resuelven sus problemas actuales, y por que este es un buen momento para digitalizar. Directo, con criterio, constructivo.
+
+Luego, para cada seccion, formato exacto:
+
+### SECCION: [NOMBRE]
+**Hallazgos:** [2 a 5 frases con lo que el cliente dijo. Solo hechos, sin juicio.]
+**Analisis y oportunidades de mejora:** [2 a 4 frases con tu interpretacion como consultor: que significa, que riesgo representa, como EtraziApp aporta valor. En positivo, nunca como critica.]
+
+Secciones en este orden exacto:
+### SECCION: INFORMACION GENERAL
+### SECCION: CANALES DE VENTA
+### SECCION: CATALOGO DE PRODUCTOS
+### SECCION: INVENTARIO Y ALMACENES
+### SECCION: SHOPIFY
+### SECCION: LOGISTICA Y DESPACHOS
+### SECCION: CLIENTES Y FIDELIZACION
+### SECCION: EQUIPO
+### SECCION: IDENTIDAD DE MARCA
+### SECCION: PERCEPCIONES Y PREOCUPACIONES
+
+Si una seccion no se cubrio: Hallazgos: "No se cubrio en esta sesion." Analisis: "Pendiente de levantar en una proxima conversacion."
+
+Finalmente:
+
+## OPORTUNIDADES DE MEJORA PRIORIZADAS
+Lista numerada de 4 a 7 oportunidades ordenadas de mayor a menor impacto. Cada una: (1) titulo corto en negrita, (2) descripcion de 2 a 3 lineas explicando el problema que resuelve y el valor que genera, (3) modulo de EtraziApp correspondiente (Vcontrol, Vruta, VLoyalty, Integracion Shopify, o combinacion). Tono de recomendacion de consultor.
+
+Reglas absolutas: sin emojis ni iconos, sin precios, sin saludos ni despedidas fuera de la estructura, parrafos en texto corrido salvo donde se indica lista, tono profesional con criterio de consultor.
+
+`;
 
 // ===================== CONFIGURACIÓN — completar antes de publicar =====================
 // 1. Pega aquí la URL del Worker de Cloudflare (Capítulo 4 de la guía técnica)
