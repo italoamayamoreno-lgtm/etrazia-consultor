@@ -504,15 +504,17 @@ function conversationToText(conversationLog, meta, createdAtLabel) {
 }
 
 // ---- Load & render conversations ----
-async function loadConversations() {
+function loadConversations() {
   const listEl = document.getElementById('conv-list');
   const loadingEl = document.getElementById('loading');
-  try {
-    const snap = await db.collection('conversaciones').orderBy('createdAt', 'desc').get();
+
+  db.collection('conversaciones').orderBy('createdAt', 'desc').onSnapshot(snap => {
     loadingEl.style.display = 'none';
+    listEl.innerHTML = '';
 
     if (snap.empty) {
       listEl.innerHTML = '<div class="empty-state">Todavía no hay conversaciones guardadas.</div>';
+      document.getElementById('filter-bar').style.display = 'none';
       return;
     }
 
@@ -609,17 +611,22 @@ async function loadConversations() {
 
       listEl.appendChild(card);
     });
-  } catch (err) {
+
+    // Reaplicar filtro activo después de cada actualización
+    setFilter(activeFilter, document.querySelector(`.filter-btn[data-filter="${activeFilter}"]`));
+
+  }, err => {
     loadingEl.textContent = 'Error al cargar las conversaciones. Revisa la consola para más detalles.';
+    loadingEl.style.display = 'block';
     console.error(err);
-  }
+  });
 }
 
 let activeFilter = 'Todos';
 function setFilter(value, btn) {
   activeFilter = value;
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+  if (btn) btn.classList.add('active');
   document.querySelectorAll('.conv-card').forEach(card => {
     const industria = card.dataset.industria || '';
     card.style.display = (value === 'Todos' || industria === value) ? 'block' : 'none';
